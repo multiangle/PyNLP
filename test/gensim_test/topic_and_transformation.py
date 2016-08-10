@@ -71,7 +71,7 @@ lsi_model = models.LsiModel.load('/tmp/model.lsi')
 
 ## LDA模型 **************************************************
 lda_model = models.LdaModel(corpus_tfidf, id2word=dictionary, num_topics=2)
-corpus_lda = lsi_model[corpus_tfidf]
+corpus_lda = lda_model[corpus_tfidf]
 Show2dCorpora(corpus_lda)
 # nodes = list(corpus_lda)
 # pprint(list(corpus_lda))
