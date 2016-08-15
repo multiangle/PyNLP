@@ -158,27 +158,60 @@ if __name__=='__main__':
     #                                labels=folder_name,
     #                                )
 
-    # # ===================================================================
-    # 第三次遍历，开始将文档转化成tf idf 表示
-    dictionary = corpora.Dictionary.load('./THUNews_picked.dict')
-    bow_path = './bow_sampling'
-    tfidf_path = './tfidf_sampling'
-    files = os.listdir(bow_path)
-    cate_set = set([x.split('.')[0] for x in files])
-    for cat in cate_set:
-        path = '{pp}/{cat}.mm'.format(pp=bow_path, cat=cat)
-        corpus = corpora.MmCorpus(path)
-        tfidf_model = models.TfidfModel(corpus=corpus,
-                                        dictionary=dictionary)
-        corpus_tfidf = [tfidf_model[doc] for doc in corpus]
-        corpora.MmCorpus.serialize('{f}/{c}.mm'.format(f=tfidf_path,c=cat),
-                                   corpus_tfidf,
-                                   id2word=dictionary
-                                   )
-        # print('{f}/{c}.mm'.format(f=tfidf_path,c=cat))
+    # # # ===================================================================
+    # # 第三次遍历，开始将文档转化成tf idf 表示
+    # dictionary = corpora.Dictionary.load('./THUNews_picked.dict')
+    # bow_path = './bow_sampling'
+    # tfidf_path = './tfidf_sampling'
+    # files = os.listdir(bow_path)
+    # cate_set = set([x.split('.')[0] for x in files])
+    # for cat in cate_set:
+    #     path = '{pp}/{cat}.mm'.format(pp=bow_path, cat=cat)
+    #     corpus = corpora.MmCorpus(path)
+    #     tfidf_model = models.TfidfModel(corpus=corpus,
+    #                                     dictionary=dictionary)
+    #     corpus_tfidf = [tfidf_model[doc] for doc in corpus]
+    #     corpora.MmCorpus.serialize('{f}/{c}.mm'.format(f=tfidf_path,c=cat),
+    #                                corpus_tfidf,
+    #                                id2word=dictionary
+    #                                )
+    #     # print('{f}/{c}.mm'.format(f=tfidf_path,c=cat))
 
     # # ===================================================================
     # 第四次遍历，计算lsi
+    dictionary = corpora.Dictionary.load('./THUNews_picked.dict')
+    tfidf_path = './tfidf_sampling'
+    lsi_path = './lsi_sampling'
+    files = os.listdir(tfidf_path)
+    cate_list = list(set([x.split('.')[0] for x in files]))
+    doc_num_list = []
+    tfidf_corpus_total = None
+    for cat in cate_list:
+        path = '{pp}/{cat}.mm'.format(pp=tfidf_path, cat=cat)
+        corpus = corpora.MmCorpus(path)
+        doc_num_list.append(corpus.num_docs)
+        if not tfidf_corpus_total:
+            tfidf_corpus_total = [x for x in corpus]
+        else:
+            tfidf_corpus_total += [x for x in corpus]
+        print('category {c} loaded,len {l} at {t}'
+              .format(c=cat,l=corpus.num_docs,t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
+    lsi_model = models.LsiModel(corpus = tfidf_corpus_total, dictionary = dictionary, num_topics=10)
+    print('lsi model is generated at {t}'.format(t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
+    del tfidf_corpus_total  # 总共的tfidf corpus已经用完，释放变量空间
+    for cat in cate_list:
+        path = '{pp}/{cat}.mm'.format(pp=tfidf_path, cat=cat)
+        corpus = corpora.MmCorpus(path)
+        corpus_lsi = [lsi_model[doc] for doc in corpus]
+        corpora.MmCorpus.serialize('{f}/{c}.mm'.format(f=lsi_path,c=cat),
+                                   corpus_lsi,
+                                   id2word=dictionary
+                                   )
+        print('category {c} generate lsi vector, at {t}'
+              .format(c=cat,t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
+
+
+
 
 
 
