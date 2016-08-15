@@ -6,6 +6,7 @@ import re
 import matplotlib.pyplot as plt
 from multiprocessing import Process,Queue,Lock
 import time
+import itertools
 
 class loadFolders(object):
     def __init__(self,par_path):
@@ -130,25 +131,58 @@ if __name__=='__main__':
     # dictionary.save('./THUNews_picked.dict')
 
     # # # ===================================================================
-    # 第二次遍历，开始将文档转化成id稀疏表示
+    # # 第二次遍历，开始将文档转化成id稀疏表示
+    # dictionary = corpora.Dictionary.load('./THUNews_picked.dict')
+    # for folder in loadFolders('/media/multiangle/OS/THUCNews'):
+    #     folder_name = folder.split('/')[-1]
+    #     files = os.listdir(folder)
+    #     cate_bow = []
+    #     count = 0
+    #     for file in files:
+    #         count += 1
+    #         if count%100 == 0 :
+    #             print('{c} at {t}'.format(c=count, t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
+    #         if count%10 > 0: # 抽样 n抽1
+    #             continue
+    #         file_path = os.path.join(folder,file)
+    #         file = open(file_path,'rb')
+    #         doc = file.read().decode('utf8')
+    #         word_list = convert_doc_to_wordlist(doc, cut_all)
+    #         word_bow = dictionary.doc2bow(word_list)
+    #         cate_bow.append(word_bow)
+    #         file.close()
+    #
+    #     corpora.MmCorpus.serialize('./bow_sampling/{x}.mm'.format(x=folder_name),
+    #                                cate_bow,
+    #                                id2word=dictionary,
+    #                                labels=folder_name,
+    #                                )
+
+    # # ===================================================================
+    # 第三次遍历，开始将文档转化成tf idf 表示
     dictionary = corpora.Dictionary.load('./THUNews_picked.dict')
-    for folder in loadFolders('/media/multiangle/OS/THUCNews'):
-        folder_name = folder.split('/')[-1]
-        files = os.listdir(folder)
-        cate_bow = []
-        count = 0
-        for file in files:
-            file_path = os.path.join(folder,file)
-            file = open(file_path,'rb')
-            doc = file.read().decode('utf8')
-            word_list = convert_doc_to_wordlist(doc, cut_all)
-            word_bow = dictionary.doc2bow(word_list)
-            cate_bow.append(word_bow)
-            file.close()
-            count += 1
-            if count%100 == 0 :
-                print('{c} at {t}'.format(c=count, t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
-        corpora.MmCorpus.serialize('./bow/{x}.mm'.format(x=folder_name),cate_bow)
+    bow_path = './bow_sampling'
+    tfidf_path = './tfidf_sampling'
+    files = os.listdir(bow_path)
+    cate_set = set([x.split('.')[0] for x in files])
+    for cat in cate_set:
+        path = '{pp}/{cat}.mm'.format(pp=bow_path, cat=cat)
+        corpus = corpora.MmCorpus(path)
+        tfidf_model = models.TfidfModel(corpus=corpus,
+                                        dictionary=dictionary)
+        corpus_tfidf = [tfidf_model[doc] for doc in corpus]
+        corpora.MmCorpus.serialize('{f}/{c}.mm'.format(f=tfidf_path,c=cat),
+                                   corpus_tfidf,
+                                   id2word=dictionary
+                                   )
+        # print('{f}/{c}.mm'.format(f=tfidf_path,c=cat))
+
+    # # ===================================================================
+    # 第四次遍历，计算lsi
+
+
+
+
 
 
 
