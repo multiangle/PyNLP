@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Process,Queue,Lock
 import time
 import itertools
+import pickle
 
 class loadFolders(object):
     def __init__(self,par_path):
@@ -30,6 +31,47 @@ class loadFiles(object):
                     content = this_file.read().decode('utf8')
                     yield content
                     this_file.close()
+
+def Show2dCorpora(corpus):
+    nodes = list(corpus)
+    ax0 = [x[0][1] for x in nodes] # 绘制各个doc代表的点
+    ax1 = [x[1][1] for x in nodes]
+    # print(ax0)
+    # print(ax1)
+    plt.plot(ax0,ax1,'.')
+    plt.show()
+
+def Show2dCOrporaAsClass(corpus,doc_nums):
+    nodes = list(corpus)
+    ax0 = [x[0][1] for x in nodes] # 绘制各个doc代表的点
+    ax1 = [x[1][1] for x in nodes]
+    types = getColorShape(doc_nums.__len__())
+    start = 0
+    for i in range(doc_nums.__len__()):
+        end = start + doc_nums[i]
+        plt.plot(ax0[start:end],ax1[start:end],types[i])
+        start = end
+        # plt.hold()
+    plt.show()
+
+
+def getColorShape(num):
+    t1 = 'b c g k m r y'.split()
+    t2 = '. o , < >'.split()
+    t1_num = t1.__len__()
+    t2_num = t2.__len__()
+    if num > t1_num*t2_num:
+        raise ValueError('num too big')
+    count = 0
+    v = []
+    while(count < num):
+        count += 1
+        n1 = count%t1_num
+        n2 = int(count/t1_num)
+        temp = t1[n1]+t2[n2]
+        v.append(temp)
+    return v
+
 
 def rm_char(text):
     text = re.sub('\u3000','',text)
@@ -177,46 +219,72 @@ if __name__=='__main__':
     #                                )
     #     # print('{f}/{c}.mm'.format(f=tfidf_path,c=cat))
 
+    # # # ===================================================================
+    # # 第四次遍历，计算lsi
+    # dictionary = corpora.Dictionary.load('./THUNews_picked.dict')
+    # tfidf_path = './tfidf_sampling'
+    # lsi_path = './lsi_sampling'
+    # files = os.listdir(tfidf_path)
+    # cate_list = list(set([x.split('.')[0] for x in files]))
+    # doc_num_list = []
+    # tfidf_corpus_total = None
+    # for cat in cate_list:
+    #     path = '{pp}/{cat}.mm'.format(pp=tfidf_path, cat=cat)
+    #     corpus = corpora.MmCorpus(path)
+    #     doc_num_list.append(corpus.num_docs)
+    #     if not tfidf_corpus_total:
+    #         tfidf_corpus_total = [x for x in corpus]
+    #     else:
+    #         tfidf_corpus_total += [x for x in corpus]
+    #     print('category {c} loaded,len {l} at {t}'
+    #           .format(c=cat,l=corpus.num_docs,t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
+    # lsi_model = models.LsiModel(corpus = tfidf_corpus_total,
+    #                             id2word = dictionary,
+    #                             num_topics=20)
+    # print('lsi model is generated at {t}'.format(t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
+    # del tfidf_corpus_total  # 总共的tfidf corpus已经用完，释放变量空间
+    # for cat in cate_list:
+    #     path = '{pp}/{cat}.mm'.format(pp=tfidf_path, cat=cat)
+    #     corpus = corpora.MmCorpus(path)
+    #     corpus_lsi = [lsi_model[doc] for doc in corpus]
+    #     corpora.MmCorpus.serialize('{f}/{c}.mm'.format(f=lsi_path,c=cat),
+    #                                corpus_lsi,
+    #                                id2word=dictionary
+    #                                )
+    #     print('category {c} generate lsi vector, at {t}'
+    #           .format(c=cat,t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
+
+
+    # # # ===================================================================
+    # # 降维
+    # lsi_path = './lsi_sampling'
+    # dictionary = corpora.Dictionary.load('./THUNews_picked.dict')
+    # files = os.listdir(lsi_path)
+    # cate_list = list(set([x.split('.')[0] for x in files]))
+    # corpus_lsi_total = []
+    # doc_num_list = []
+    # for cat in cate_list:
+    #     path = '{pp}/{cat}.mm'.format(pp=lsi_path, cat=cat)
+    #     corpus = corpora.MmCorpus(path)
+    #     corpus_lsi_total += [x for x in corpus]
+    #     doc_num_list.append(corpus.num_docs)
+    #     print('{c} done'.format(c=cat))
+    # file = open('./doc_num.pkl','wb')
+    # pickle.dump(doc_num_list,file)
+    # file.close()
+    # lsi_model_2d = models.LsiModel(corpus_lsi_total,id2word=dictionary,num_topics=2)
+    # corpus_2d = lsi_model_2d[corpus_lsi_total]
+    # corpora.MmCorpus.serialize('./corpus2d.mm',corpus_2d)
+
+
     # # ===================================================================
-    # 第四次遍历，计算lsi
-    dictionary = corpora.Dictionary.load('./THUNews_picked.dict')
-    tfidf_path = './tfidf_sampling'
-    lsi_path = './lsi_sampling'
-    files = os.listdir(tfidf_path)
-    cate_list = list(set([x.split('.')[0] for x in files]))
-    doc_num_list = []
-    tfidf_corpus_total = None
-    for cat in cate_list:
-        path = '{pp}/{cat}.mm'.format(pp=tfidf_path, cat=cat)
-        corpus = corpora.MmCorpus(path)
-        doc_num_list.append(corpus.num_docs)
-        if not tfidf_corpus_total:
-            tfidf_corpus_total = [x for x in corpus]
-        else:
-            tfidf_corpus_total += [x for x in corpus]
-        print('category {c} loaded,len {l} at {t}'
-              .format(c=cat,l=corpus.num_docs,t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
-    lsi_model = models.LsiModel(corpus = tfidf_corpus_total, dictionary = dictionary, num_topics=10)
-    print('lsi model is generated at {t}'.format(t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
-    del tfidf_corpus_total  # 总共的tfidf corpus已经用完，释放变量空间
-    for cat in cate_list:
-        path = '{pp}/{cat}.mm'.format(pp=tfidf_path, cat=cat)
-        corpus = corpora.MmCorpus(path)
-        corpus_lsi = [lsi_model[doc] for doc in corpus]
-        corpora.MmCorpus.serialize('{f}/{c}.mm'.format(f=lsi_path,c=cat),
-                                   corpus_lsi,
-                                   id2word=dictionary
-                                   )
-        print('category {c} generate lsi vector, at {t}'
-              .format(c=cat,t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
-
-
-
-
-
-
-
-
+    # 绘图
+    file = open('./doc_num.pkl','rb')
+    doc_num = pickle.load(file)
+    file.close()
+    print(doc_num)
+    corpus_2d = corpora.MmCorpus('./corpus2d.mm')
+    Show2dCOrporaAsClass(corpus_2d,doc_num)
 
 
 
