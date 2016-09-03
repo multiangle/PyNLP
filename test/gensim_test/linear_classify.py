@@ -9,6 +9,8 @@ from matplotlib import colors
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 
+from scipy.sparse import csr_matrix
+
 ###############################################################################
 # colormap
 cmap = colors.LinearSegmentedColormap(
@@ -25,15 +27,15 @@ def dataset_fixed_cov():
     n, dim = 300, 2
     np.random.seed(0)
     C = np.array([[0., -0.23], [0.83, .23]])
-    print(C)
+    # print(C)
     X = np.r_[np.dot(np.random.randn(n, dim), C),
               np.dot(np.random.randn(n, dim), C) + np.array([1, 1])]
-    print(X.shape)
-    plt.plot(X[:300,0],X[:300,1],'b.')
-    plt.plot(X[300:,0],X[300:,1],'r.')
-    plt.show()
+    # print(X.shape)
+    # plt.plot(X[:300,0],X[:300,1],'b.')
+    # plt.plot(X[300:,0],X[300:,1],'r.')
+    # plt.show()
     y = np.hstack((np.zeros(n), np.ones(n)))
-    print(np.random.randn(n, dim))
+    # print(np.random.randn(n, dim))
     return X, y
 
 
@@ -123,8 +125,21 @@ def plot_qda_cov(qda, splot):
 ###############################################################################
 for i, (X, y) in enumerate([dataset_fixed_cov(), dataset_cov()]):
     # Linear Discriminant Analysis
+    rows        = []
+    cols        = []
+    data        = []        # 数据
+    count = 0
+    for line in X:
+        rows += [count,count]
+        count += 1
+        data.append(line[0])
+        data.append(line[1])
+        cols += [0,1]
+    csrm = csr_matrix((data,(rows,cols)))
+
     lda = LinearDiscriminantAnalysis(solver="svd", store_covariance=True)
-    y_pred = lda.fit(X, y).predict(X)
+    y_pred = lda.fit(csrm.toarray(), y).predict(X)
+    print(y_pred)
     splot = plot_data(lda, X, y, y_pred, fig_index=2 * i + 1)
     plot_lda_cov(lda, splot)
     plt.axis('tight')
@@ -137,5 +152,3 @@ for i, (X, y) in enumerate([dataset_fixed_cov(), dataset_cov()]):
     plt.axis('tight')
 plt.suptitle('Linear Discriminant Analysis vs Quadratic Discriminant Analysis')
 plt.show()
-
-dataset_fixed_cov()

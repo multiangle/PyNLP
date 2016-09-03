@@ -218,7 +218,7 @@ if __name__=='__main__':
             tfidf_corpus_total += [x for x in corpus]
         print('category {c} loaded,len {l} at {t}'
               .format(c=cat,l=corpus.num_docs,t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
-    lsi_model = models.LsiModel(corpus = tfidf_corpus_total, id2word = dictionary, num_topics=10)
+    lsi_model = models.LsiModel(corpus = tfidf_corpus_total, id2word = dictionary, num_topics=400)
     print('lsi model is generated at {t}'.format(t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
     del tfidf_corpus_total  # 总共的tfidf corpus已经用完，释放变量空间
     for cat in cate_list:
