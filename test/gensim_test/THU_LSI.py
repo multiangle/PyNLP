@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Process,Queue,Lock
 import time
 import itertools
+import pickle as pkl
 
 class loadFolders(object):
     def __init__(self,par_path):
@@ -117,7 +118,7 @@ def genDict(path_parent, path_dict_folder):
     dictionary.save(os.path.join(path_dict_folder,'THUNews.dict'))
     dictionary.save_as_text(os.path.join(path_dict_folder,'THUNews.txt'))
 
-def convDoc2Vector(path_doc_parent,path_dict_folder,path_root):
+def convDoc2Vector(path_doc_parent,path_dict_folder,path_root,path_tmp):
     dictionary = corpora.Dictionary.load(os.path.join(path_dict_folder,'THUNews_picked.dict'))
     print(os.path.join(path_dict_folder,'THUNews_picked.dict'))
     for folder in loadFolders(path_doc_parent):
@@ -140,7 +141,7 @@ def convDoc2Vector(path_doc_parent,path_dict_folder,path_root):
             cate_bow.append(word_bow)
             file.close()
 
-        tmp_path = os.path.join(path_root,'bow_sampling')
+        tmp_path = os.path.join(path_tmp,'bow_sampling')
         if not os.path.exists(tmp_path):
             os.mkdir(tmp_path)
         corpora.MmCorpus.serialize(tmp_path+'/{x}.mm'.format(x=folder_name),
@@ -153,55 +154,63 @@ if __name__=='__main__':
 
     cut_all = True # 是否要把所有可能的单词都列出来？ true 表示是 , false 表示否
     path_root   = '/media/multiangle/F/DataSet/THUCNews'
+    path_tmp    = path_root + '/tmp'
+    if not os.path.exists(path_tmp):
+        os.mkdir(path_tmp)
     path_doc_parent = os.path.join(path_root,'THUCNewsTotal')
     os.chdir(path_doc_parent)
-    path_dict_folder = os.path.join(path_root, 'THUNewsDict') # 存放词典的地方
+    path_dict_folder = os.path.join(path_tmp, 'THUNewsDict') # 存放词典的地方
     if not os.path.exists(path_dict_folder):
         os.mkdir(path_dict_folder)
 
 
     # # ===================================================================
     # # 第一次遍历，成立词典，获取词频，文频等信息
-    # genDict(path_doc_parent, path_dict_folder)
+    genDict(path_doc_parent, path_dict_folder)
 
     # # ===================================================================
     # # 去掉词典中出现次数过少的
-    # dictionary = corpora.Dictionary.load(os.path.join(path_dict_folder, 'THUNews.dict'))
-    # small_freq_ids = [tokenid for tokenid, docfreq in dictionary.dfs.items() if docfreq < 5 ]
-    # dictionary.filter_tokens(small_freq_ids)
-    # dictionary.compactify()
-    # dictionary.save(os.path.join(path_dict_folder, 'THUNews_picked.dict'))
+    dictionary = corpora.Dictionary.load(os.path.join(path_dict_folder, 'THUNews.dict'))
+    small_freq_ids = [tokenid for tokenid, docfreq in dictionary.dfs.items() if docfreq < 5 ]
+    dictionary.filter_tokens(small_freq_ids)
+    dictionary.compactify()
+    dictionary.save(os.path.join(path_dict_folder, 'THUNews_picked.dict'))
 
     # # ===================================================================
     # # 第二次遍历，开始将文档转化成id稀疏表示
-    # convDoc2Vector(path_doc_parent, path_dict_folder, path_root)
+    convDoc2Vector(path_doc_parent, path_dict_folder, path_root,path_tmp)
 
-    # # # ===================================================================
-    # # 第三次遍历，开始将文档转化成tf idf 表示
-    # dictionary = corpora.Dictionary.load(os.path.join(path_dict_folder,'THUNews_picked.dict'))
-    # bow_path = path_root + '/bow_sampling'
-    # tfidf_path = path_root + '/tfidf_sampling'
-    # if not os.path.exists(tfidf_path):
-    #     os.mkdir(tfidf_path)
-    # files = os.listdir(bow_path)
-    # cate_set = set([x.split('.')[0] for x in files])
-    # for cat in cate_set:
-    #     path = '{pp}/{cat}.mm'.format(pp=bow_path, cat=cat)
-    #     corpus = corpora.MmCorpus(path)
-    #     tfidf_model = models.TfidfModel(corpus=corpus,
-    #                                     dictionary=dictionary)
-    #     corpus_tfidf = [tfidf_model[doc] for doc in corpus]
-    #     corpora.MmCorpus.serialize('{f}/{c}.mm'.format(f=tfidf_path,c=cat),
-    #                                corpus_tfidf,
-    #                                id2word=dictionary
-    #                                )
-    #     print('{f}/{c}.mm'.format(f=tfidf_path,c=cat))
+    # # ===================================================================
+    # 第三次遍历，开始将文档转化成tf idf 表示
+    dictionary = corpora.Dictionary.load(os.path.join(path_dict_folder,'THUNews_picked.dict'))
+    bow_path = path_tmp + '/bow_sampling'
+    tfidf_path = path_tmp + '/tfidf_sampling'
+    if not os.path.exists(tfidf_path):
+        os.mkdir(tfidf_path)
+    files = os.listdir(bow_path)
+    cate_set = set([x.split('.')[0] for x in files])
+    for cat in cate_set:
+        path = '{pp}/{cat}.mm'.format(pp=bow_path, cat=cat)
+        corpus = corpora.MmCorpus(path)
+        tfidf_model = models.TfidfModel(corpus=corpus,
+                                        dictionary=dictionary)
 
-    # # # ===================================================================
+        tfidf_file = open(path_tmp+'/tfidf_model.pkl','wb')
+        pkl.dump(tfidf_model, tfidf_file)
+        tfidf_file.close()
+
+        corpus_tfidf = [tfidf_model[doc] for doc in corpus]
+        corpora.MmCorpus.serialize('{f}/{c}.mm'.format(f=tfidf_path,c=cat),
+                                   corpus_tfidf,
+                                   id2word=dictionary
+                                   )
+        print('{f}/{c}.mm'.format(f=tfidf_path,c=cat))
+
+    # # ===================================================================
     # # 第四次遍历，计算lsi
     dictionary  = corpora.Dictionary.load(os.path.join(path_dict_folder,'THUNews_picked.dict'))
-    tfidf_path  = path_root + '/tfidf_sampling'
-    lsi_path    = path_root + '/lsi_sampling'
+    tfidf_path  = path_tmp + '/tfidf_sampling'
+    lsi_path    = path_tmp + '/lsi_sampling'
     if not os.path.exists(lsi_path):
         os.mkdir(lsi_path)
     files = os.listdir(tfidf_path)
@@ -218,7 +227,12 @@ if __name__=='__main__':
             tfidf_corpus_total += [x for x in corpus]
         print('category {c} loaded,len {l} at {t}'
               .format(c=cat,l=corpus.num_docs,t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
-    lsi_model = models.LsiModel(corpus = tfidf_corpus_total, id2word = dictionary, num_topics=400)
+
+    lsi_model = models.LsiModel(corpus = tfidf_corpus_total, id2word = dictionary, num_topics=50)
+    lsi_file = open(path_tmp+'/lsi_model.pkl','wb')
+    pkl.dump(lsi_model, lsi_file)
+    lsi_file.close()
+
     print('lsi model is generated at {t}'.format(t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
     del tfidf_corpus_total  # 总共的tfidf corpus已经用完，释放变量空间
     for cat in cate_list:
