@@ -163,7 +163,6 @@ if __name__=='__main__':
     if not os.path.exists(path_dict_folder):
         os.mkdir(path_dict_folder)
 
-
     # # ===================================================================
     # # 第一次遍历，成立词典，获取词频，文频等信息
     genDict(path_doc_parent, path_dict_folder)
