@@ -9,5 +9,5 @@ class segmentor(segmentor_base):
 
     #Override
     def _cut_inner(self, content_str):
-        return jieba.cut(content_str, cut_all=self.cut_all)
+        return jieba.cut(content_str,cut_all=self.cut_all)
 
