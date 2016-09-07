@@ -2,22 +2,18 @@
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy import sparse
+import jieba
 
-row = np.array([0, 0, 1, 2, 2, 2])
-col = np.array([0, 2, 2, 0, 1, 2])
-data = np.array([1, 2, 3, 4, 5, 6])
-c_1 = csr_matrix((data, (row, col)),shape=(3,5))
-print(c_1)
-print(c_1.shape)
-print('----------------')
+content = """北京北京
 
-row = np.array([0, 0, 1, 2, 2, 2])
-col = np.array([4, 2, 2, 0, 1, 2])
-data = np.array([1, 2, 3, 4, 5, 6])
-c_2 = csr_matrix((data, (row, col)) )
-print(c_2)
-print(c_2.shape)
-print('----------------')
+当我走在这里的每一条街道
+我的心似乎从来都不能平静
+除了发动机的轰鸣和电气之音
+我似乎听到了他烛骨般的心跳
+我在这里欢笑
+我在这里哭泣
+我在这里活着
+也在这里死去"""
 
-c_3 = sparse.vstack([c_1,c_2])
-print(c_3[(1,3),:])
+content = list(jieba.cut(content,cut_all=True))
+print(content)
