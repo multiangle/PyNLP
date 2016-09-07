@@ -41,25 +41,36 @@ def cal_grad(x,y,data):
     return [gradx, grady]
 
 trace = []
+gap = []
 x=10
-y=15
+y=-10
 data = [
     [0,0,10],
     [60,0,10],
     [30,30,10]
 ]
-
 times=0
 trace.append([x,y])
 while times<1000 :
     gradx, grady = cal_grad(x,y,data)
     print(gradx,grady)
-    lamb = 20
+    lamb = 200
     x -= lamb*gradx
     y -= lamb*grady
     trace.append([x,y])
+    gap.append((gradx**2+grady**2)**0.5*lamb)
     times += 1
 x_trace = [i[0] for i in trace]
 y_trace = [i[1] for i in trace]
-plt.plot(x_trace,y_trace,'.')
+
+ax = plt.subplot()
+ax.set_xlim((0, 80))
+ax.set_ylim((-50, 50))
+for item in data:
+    circle = plt.Circle((item[0], item[1]), item[2], color='r', fill=False)
+    ax.add_artist(circle)
+ax.plot(x_trace,y_trace,'bo')
+ax.plot(x_trace,y_trace,'r')
+bx = plt.subplot()
+bx.plot(gap)
 plt.show()

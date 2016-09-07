@@ -19,54 +19,59 @@ path_root   = '/media/multiangle/F/DataSet/THUCNews'
 path_dict_folder = os.path.join(path_root, 'THUNewsDict') # 存放词典的地方
 dictionary  = corpora.Dictionary.load(os.path.join(path_dict_folder,'THUNews_picked.dict'))
 path_tmp    = path_root + '/tmp'
-#
 lsi_path    = path_tmp + '/lsi_sampling'
+
 files       = os.listdir(lsi_path)
-cate_list       = list(set([x.split('.')[0] for x in files]))
+cate_list_init       = [x.split('.')[0] for x in files]
+cate_list  = []
+for item in cate_list_init:
+    if item not in cate_list:
+        cate_list.append(item)
+
 cate_path_list  = [lsi_path + '/' + cat for cat in cate_list]
 
-# doc_num_list = []
-# tag_list    = []
-# lsi_corpus_total = None
-# count = 0
-# for cat in cate_list:
-#     path = '{pp}/{cat}.mm'.format(pp=lsi_path, cat=cat)
-#     corpus = corpora.MmCorpus(path)
-#     doc_num_list.append(corpus.num_docs)
-#     tag_list += [count]*corpus.num_docs
-#     count += 1
-#     if not lsi_corpus_total:
-#         lsi_corpus_total = [x for x in corpus]
-#     else:
-#         lsi_corpus_total += [x for x in corpus]
-#     print('category {c} loaded,len {l} at {t}'
-#           .format(c=cat,l=corpus.num_docs,t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
-#
-# # 将gensim中的mm表示转化成numpy矩阵表示
-# data = []
-# rows = []
-# cols = []
-# line_count = 0
-# for line in lsi_corpus_total:
-#     for elem in line:
-#         rows.append(line_count)
-#         cols.append(elem[0])
-#         data.append(elem[1])
-#     line_count += 1
-# lsi_matrix = csr_matrix((data,(rows,cols))).toarray()
-# rarray=np.random.random(size=line_count)
-# train_set = []
-# train_tag = []
-# test_set = []
-# test_tag = []
-# for i in range(line_count):
-#     if rarray[i]<0.8:
-#         train_set.append(lsi_matrix[i,:])
-#         train_tag.append(tag_list[i])
-#     else:
-#         test_set.append(lsi_matrix[i,:])
-#         test_tag.append(tag_list[i])
-# svm_classify(lsi_matrix,tag_list)
+doc_num_list = []
+tag_list    = []
+lsi_corpus_total = None
+count = 0
+for cat in cate_list:
+    path = '{pp}/{cat}.mm'.format(pp=lsi_path, cat=cat)
+    corpus = corpora.MmCorpus(path)
+    doc_num_list.append(corpus.num_docs)
+    tag_list += [count]*corpus.num_docs
+    count += 1
+    if not lsi_corpus_total:
+        lsi_corpus_total = [x for x in corpus]
+    else:
+        lsi_corpus_total += [x for x in corpus]
+    print('category {c} loaded,len {l} at {t}'
+          .format(c=cat,l=corpus.num_docs,t=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())))
+
+# 将gensim中的mm表示转化成numpy矩阵表示
+data = []
+rows = []
+cols = []
+line_count = 0
+for line in lsi_corpus_total:
+    for elem in line:
+        rows.append(line_count)
+        cols.append(elem[0])
+        data.append(elem[1])
+    line_count += 1
+lsi_matrix = csr_matrix((data,(rows,cols))).toarray()
+rarray=np.random.random(size=line_count)
+train_set = []
+train_tag = []
+test_set = []
+test_tag = []
+for i in range(line_count):
+    if rarray[i]<0.8:
+        train_set.append(lsi_matrix[i,:])
+        train_tag.append(tag_list[i])
+    else:
+        test_set.append(lsi_matrix[i,:])
+        test_tag.append(tag_list[i])
+
 
 # 测试线性分类
 def linear_classify(data,tag):
@@ -95,13 +100,16 @@ def svm_classify(data, tag):
     train_err_num, train_err_ratio = checkPred(train_tag, train_pred)
     test_err_num, test_err_ratio  = checkPred(test_tag, test_pred)
 
-    print(train_err_num)
+    # print(train_err_num)
+    print('训练集误差')
     print(train_err_ratio)
-    print(test_err_num)
+    # print(test_err_num)
+    print('检验集误差')
     print(test_err_ratio)
 
-    x = open(+'/svm_classifier.pkl','wb')
+    x = open(path_tmp+'/svm_classifier.pkl','wb')
     pkl.dump(clf, x)
+    x.close()
 
 # cal the result of prediction
 def checkPred(data_tag, data_pred):
@@ -114,17 +122,20 @@ def checkPred(data_tag, data_pred):
     err_ratio = err_count / data_tag.__len__()
     return [err_count, err_ratio]
 
-def gen_lsi_vector(content, path_dict_folder):
-    content = [i for i in jieba.cut(content,cut_all=False)]
+def predict_new_content(content, path_dict_folder):
+    print('开始预测新文本分类')
+    print('原始内容:')
     print(content)
+    content = [i for i in jieba.cut(content,cut_all=False)]
+    # print(content)
     dictionary = corpora.Dictionary.load(os.path.join(path_dict_folder,'THUNews_picked.dict'))
     corpus = dictionary.doc2bow(content)
     corpus = [corpus]
-    print(corpus)
+    # print(corpus)
     tfidf_model = models.TfidfModel(corpus=corpus,
                                     dictionary=dictionary)
     corpus_tfidf = [tfidf_model[doc] for doc in corpus]
-    print(corpus_tfidf)
+    # print(corpus_tfidf)
     path_root   = '/media/multiangle/F/DataSet/THUCNews'
     path_tmp    = path_root + '/tmp'
     file = open(path_tmp+'/lsi_model.pkl','rb')
@@ -132,7 +143,7 @@ def gen_lsi_vector(content, path_dict_folder):
     file.close()
     # lsi_model = models.LsiModel(corpus = corpus_tfidf, id2word = dictionary, num_topics=50)
     corpus_lsi = [lsi_model[doc] for doc in corpus]
-    print(corpus_lsi)
+    # print(corpus_lsi)
     data = []
     rows = []
     cols = []
@@ -142,17 +153,17 @@ def gen_lsi_vector(content, path_dict_folder):
         rows.append(0)
         cols.append(item[0])
     content = csr_matrix((data,(rows,cols))).toarray()
-    print(content)
+    # print(content)
 
     file = open(path_root+'/svm_classifier.pkl','rb')
     svm_classifier = pkl.load(file)
     cat = svm_classifier.predict(content)
-    print(cat)
+    # print(cat)
+    print('计算得到的分类结果：')
     print(cate_list[cat])
 
+svm_classify(lsi_matrix,tag_list)
 
-path_root   = '/media/multiangle/F/DataSet/THUCNews'
-path_dict_folder = os.path.join(path_root, 'THUNewsDict') # 存放词典的地方
 content = """
 第三、苏南怎么了
 首先，经历了高增长之后，势必有一个低增长期，经济发展的必然，转型也需要时间，没有什么大惊小怪。
@@ -168,4 +179,4 @@ content = """
 但无锡乙烷了吗？只要乡镇企业还存在，无锡就没完，请别忽视了草根的力量。
 苏州形式比无锡要好，苏州没有无锡这样的折腾，特别是苏州发展了金融业，还是比较高大上的。但是产业转型，和无锡一样，依旧在摸索中。
 """
-gen_lsi_vector(content, path_dict_folder)
+predict_new_content(content, path_dict_folder)

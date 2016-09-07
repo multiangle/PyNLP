@@ -191,8 +191,7 @@ if __name__=='__main__':
     for cat in cate_set:
         path = '{pp}/{cat}.mm'.format(pp=bow_path, cat=cat)
         corpus = corpora.MmCorpus(path)
-        tfidf_model = models.TfidfModel(corpus=corpus,
-                                        dictionary=dictionary)
+        tfidf_model = models.TfidfModel(dictionary=dictionary)
 
         tfidf_file = open(path_tmp+'/tfidf_model.pkl','wb')
         pkl.dump(tfidf_model, tfidf_file)
