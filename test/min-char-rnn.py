@@ -15,7 +15,7 @@ char_to_ix = { ch:i for i,ch in enumerate(chars) }
 ix_to_char = { i:ch for i,ch in enumerate(chars) }
 
 # hyperparameters
-hidden_size = 100 # size of hidden layer of neurons
+hidden_size = 300   # size of hidden layer of neurons
 seq_length = 25 # number of steps to unroll the RNN for
 learning_rate = 1e-1
 
@@ -33,7 +33,7 @@ def lossFun(inputs, targets, hprev):
     returns the loss, gradients on model parameters, and last hidden state
     """
     xs, hs, ys, ps = {}, {}, {}, {}
-    hs[-1] = np.copy(hprev)
+    hs[-1] = np.copy(hprev)  # hprev 中间层的值。
     loss = 0
     # forward pass
     for t in range(len(inputs)):
@@ -71,11 +71,11 @@ def sample(h, seed_ix, n):
     x[seed_ix] = 1
     ixes = []
     for t in range(n):
-        h = np.tanh(np.dot(Wxh, x) + np.dot(Whh, h) + bh)
-        y = np.dot(Why, h) + by
-        p = np.exp(y) / np.sum(np.exp(y))
-        ix = np.random.choice(range(vocab_size), p=p.ravel())
-        x = np.zeros((vocab_size, 1))
+        h = np.tanh(np.dot(Wxh, x) + np.dot(Whh, h) + bh)    # 更新中间层
+        y = np.dot(Why, h) + by             # 得到输出
+        p = np.exp(y) / np.sum(np.exp(y))   # softmax
+        ix = np.random.choice(range(vocab_size), p=p.ravel())   # 根据softmax得到的结果，按概率产生下一个字符
+        x = np.zeros((vocab_size, 1))       # 产生下一轮的输入
         x[ix] = 1
         ixes.append(ix)
     return ixes
@@ -86,29 +86,29 @@ mbh, mby = np.zeros_like(bh), np.zeros_like(by) # memory variables for Adagrad
 smooth_loss = -np.log(1.0/vocab_size)*seq_length # loss at iteration 0
 while True:
     # prepare inputs (we're sweeping from left to right in steps seq_length long)
-    if p+seq_length+1 >= len(data) or n == 0:
-        hprev = np.zeros((hidden_size,1)) # reset RNN memory
-        p = 0 # go from start of data
-    inputs = [char_to_ix[ch] for ch in data[p:p+seq_length]]
-    targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]
+    if p+seq_length+1 >= len(data) or n == 0:   # 如果 n=0 或者 p过大
+        hprev = np.zeros((hidden_size,1)) # reset RNN memory 中间层内容初始化，零初始化
+        p = 0 # go from start of data           # p 重置
+    inputs = [char_to_ix[ch] for ch in data[p:p+seq_length]] # 一批输入seq_length个字符
+    targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]  # targets是对应的inputs的期望输出。
 
     # sample from the model now and then
-    if n % 100 == 0:
+    if n % 100 == 0:      # 每循环100词， sample一次，显示结果
         sample_ix = sample(hprev, inputs[0], 200)
         txt = ''.join(ix_to_char[ix] for ix in sample_ix)
         print ('----\n %s \n----' % (txt, ))
 
     # forward seq_length characters through the net and fetch gradient
     loss, dWxh, dWhh, dWhy, dbh, dby, hprev = lossFun(inputs, targets, hprev)
-    smooth_loss = smooth_loss * 0.999 + loss * 0.001
+    smooth_loss = smooth_loss * 0.999 + loss * 0.001   # 将原有的Loss与新loss结合起来
     if n % 100 == 0: print ('iter %d, loss: %f' % (n, smooth_loss)) # print progress
 
     # perform parameter update with Adagrad
     for param, dparam, mem in zip([Wxh, Whh, Why, bh, by],
                                   [dWxh, dWhh, dWhy, dbh, dby],
                                   [mWxh, mWhh, mWhy, mbh, mby]):
-        mem += dparam * dparam
-        param += -learning_rate * dparam / np.sqrt(mem + 1e-8) # adagrad update
+        mem += dparam * dparam  # 梯度的累加
+        param += -learning_rate * dparam / np.sqrt(mem + 1e-8) # adagrad update 随着迭代次数增加，参数的变更量会越来越小
 
     p += seq_length # move data pointer
-    n += 1 # iteration counter
+    n += 1 # iteration counter， 循环次数
