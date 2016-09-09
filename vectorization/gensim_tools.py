@@ -30,20 +30,18 @@ class doc2bow():
 
 
 
-
-
-class tf_idf_model():
+class doc2tfidf():
+    """
+    doc2tfidf 负责将文本从单词序列转化成tfidf格式
+    """
     def __init__(self, dictionary):
-        assert type(dictionary)==corpora.Dictionary
         self.dictionary = dictionary
 
-    def __getitem__(self, bow ):
-        # todo
-        pass
+    def transform(self, corpus):
+        tfidf_model = models
 
-class lsi_model():
-    pass
-    # todo
+
+
 
 def corpus2csrmatrix(corpus, vec_len=None, divide=None):
     '''

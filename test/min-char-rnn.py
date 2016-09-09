@@ -15,7 +15,7 @@ char_to_ix = { ch:i for i,ch in enumerate(chars) }
 ix_to_char = { i:ch for i,ch in enumerate(chars) }
 
 # hyperparameters
-hidden_size = 300   # size of hidden layer of neurons
+hidden_size = 100   # size of hidden layer of neurons
 seq_length = 25 # number of steps to unroll the RNN for
 learning_rate = 1e-1
 
@@ -33,31 +33,41 @@ def lossFun(inputs, targets, hprev):
     returns the loss, gradients on model parameters, and last hidden state
     """
     xs, hs, ys, ps = {}, {}, {}, {}
-    hs[-1] = np.copy(hprev)  # hprev 中间层的值。
+    hs[-1] = np.copy(hprev)  # hprev 中间层的值, 存作-1，为第一个做准备
     loss = 0
     # forward pass
     for t in range(len(inputs)):
         xs[t] = np.zeros((vocab_size,1)) # encode in 1-of-k representation
-        xs[t][inputs[t]] = 1
-        hs[t] = np.tanh(np.dot(Wxh, xs[t]) + np.dot(Whh, hs[t-1]) + bh) # hidden state
+        xs[t][inputs[t]] = 1    # x[t] 是一个第t个输入单词的向量
+
+        # 双曲正切, 激活函数, 作用跟sigmoid类似
+        # h(t) = tanh(Wxh*X + Whh*h(t-1) + bh) 生成新的中间层
+        hs[t] = np.tanh(np.dot(Wxh, xs[t]) + np.dot(Whh, hs[t-1]) + bh) # hidden state  tanh
+        # y(t) = Why*h(t) + by
         ys[t] = np.dot(Why, hs[t]) + by # unnormalized log probabilities for next chars
-        ps[t] = np.exp(ys[t]) / np.sum(np.exp(ys[t])) # probabilities for next chars
+        # softmax regularization
+        # p(t) = softmax(y(t))
+        ps[t] = np.exp(ys[t]) / np.sum(np.exp(ys[t])) # probabilities for next chars,
+        # loss += -log(value) 预期输出是1，因此这里的value值就是此次的代价函数，使用 -log(*) 使得离正确输出越远，代价函数就越高
         loss += -np.log(ps[t][targets[t],0]) # softmax (cross-entropy loss)
+
+    # 将输入循环一遍以后，得到各个时间段的h, y 和 p
+    # 得到此时累积的loss, 准备进行更新矩阵
     # backward pass: compute gradients going backwards
-    dWxh, dWhh, dWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why)
+    dWxh, dWhh, dWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why) # 各矩阵的参数进行
     dbh, dby = np.zeros_like(bh), np.zeros_like(by)
-    dhnext = np.zeros_like(hs[0])
-    for t in reversed(range(len(inputs))):
-        dy = np.copy(ps[t])
+    dhnext = np.zeros_like(hs[0])   # 下一个时间段的潜在层，初始化为零向量
+    for t in reversed(range(len(inputs))): # 把时间作为维度，则梯度的计算应该沿着时间回溯
+        dy = np.copy(ps[t])  # 设dy为实际输出，而期望输出（单位向量）为y, 则 (dy-y)**2 可以作为代价函数，求导的 (dy-y)*导数
         dy[targets[t]] -= 1 # backprop into y. see http://cs231n.github.io/neural-networks-case-study/#grad if confused here
-        dWhy += np.dot(dy, hs[t].T)
-        dby += dy
-        dh = np.dot(Why.T, dy) + dhnext # backprop into h
-        dhraw = (1 - hs[t] * hs[t]) * dh # backprop through tanh nonlinearity
-        dbh += dhraw
-        dWxh += np.dot(dhraw, xs[t].T)
-        dWhh += np.dot(dhraw, hs[t-1].T)
-        dhnext = np.dot(Whh.T, dhraw)
+        dWhy += np.dot(dy, hs[t].T)  # dy * h(t).T h层值越大的项，如果错误，则惩罚越严重。反之，奖励越多（其实我觉得这边不是太严谨，没考虑softmax和tanh的求导）
+        dby += dy # 这个没什么可说的，与dWhy一样，只不过h项=1， 所以直接等于dy
+        dh = np.dot(Why.T, dy) + dhnext # backprop into h  z_t = Why*H_t + b_y H_t = tanh(Whh*H_t-1 + Whx*X_t), 第一阶段求导
+        dhraw = (1 - hs[t] * hs[t]) * dh # backprop through tanh nonlinearity  第二阶段求导，注意tanh的求导
+        dbh += dhraw   # dbh表示传递 到h层的误差
+        dWxh += np.dot(dhraw, xs[t].T)    # 对Wxh的修正，同Why
+        dWhh += np.dot(dhraw, hs[t-1].T)  # 对Whh的修正
+        dhnext = np.dot(Whh.T, dhraw)     # h层的误差通过Whh不停地累积（有个疑问，为什么不是Whh的逆，难道不是逆向传播的吗）
     for dparam in [dWxh, dWhh, dWhy, dbh, dby]:
         np.clip(dparam, -5, 5, out=dparam) # clip to mitigate exploding gradients
     return loss, dWxh, dWhh, dWhy, dbh, dby, hs[len(inputs)-1]
