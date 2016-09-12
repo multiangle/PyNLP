@@ -6,7 +6,8 @@ import numpy as np
 import jieba
 
 # data I/O
-data = open('/home/multiangle/download/wang.txt', 'r').read() # should be simple plain text file
+data = open('/home/multiangle/download/280.txt', 'rb').read() # should be simple plain text file
+data = data.decode('gbk')
 data = list(jieba.cut(data,cut_all=False))
 chars = list(set(data))
 data_size, vocab_size = len(data), len(chars)
@@ -15,7 +16,7 @@ char_to_ix = { ch:i for i,ch in enumerate(chars) }
 ix_to_char = { i:ch for i,ch in enumerate(chars) }
 
 # hyperparameters
-hidden_size = 100   # size of hidden layer of neurons
+hidden_size = 200   # size of hidden layer of neurons
 seq_length = 25 # number of steps to unroll the RNN for
 learning_rate = 1e-1
 
