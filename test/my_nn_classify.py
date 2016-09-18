@@ -1,12 +1,8 @@
 
 import numpy as np
-import os
-import pickle as pkl
 import matplotlib.pyplot as plt
 import random
 import math
-from pprint import pprint
-
 
 
 # 构造各个分类
@@ -34,7 +30,6 @@ def plot_dots(data):
         # print(d)
         nd = np.array(d)
         plt.plot(nd[:,0],nd[:,1],colors[i])
-    plt.figure()
     plt.draw()
 
 def train(input, output, Whx, Wyh, bh, by):
@@ -112,6 +107,7 @@ if __name__=='__main__':
     bh  = np.zeros((hidden_size, 1))
     by  = np.zeros((output_dim, 1))
     data = gen_sample()
+    plt.subplot(221)
     plot_dots(data)
     ndata = np.array(data)
     train_set = ndata[0:800,:]
@@ -138,8 +134,10 @@ if __name__=='__main__':
         input = ndata[i:i+1,0:2].T
         tag = predict(input,Whx,Wyh,bh,by)
         ndata[i,2] = tag
+    plt.subplot(222)
     plot_dots(ndata)
-    plt.figure()
+    # plt.figure()
+    plt.subplot(212)
     plt.plot(train_ratio_list)
     plt.plot(test_ratio_list)
     plt.show()

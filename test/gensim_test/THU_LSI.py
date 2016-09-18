@@ -24,12 +24,13 @@ class loadFiles(object):
     def __iter__(self):
         folders = loadFolders(self.par_path)
         for folder in folders:              # level directory
+            catg = folder.split(os.sep)[-1]
             for file in os.listdir(folder):     # secondary directory
                 file_path = os.path.join(folder,file)
                 if os.path.isfile(file_path):
                     this_file = open(file_path,'rb')
                     content = this_file.read().decode('utf8')
-                    yield content
+                    yield catg,content
                     this_file.close()
 
 def rm_char(text):
@@ -168,7 +169,7 @@ if __name__=='__main__':
     genDict(path_doc_parent, path_dict_folder)
 
     # # ===================================================================
-    # # 去掉词典中出现次数过少的
+    #
     dictionary = corpora.Dictionary.load(os.path.join(path_dict_folder, 'THUNews.dict'))
     small_freq_ids = [tokenid for tokenid, docfreq in dictionary.dfs.items() if docfreq < 5 ]
     dictionary.filter_tokens(small_freq_ids)
@@ -212,7 +213,11 @@ if __name__=='__main__':
     if not os.path.exists(lsi_path):
         os.mkdir(lsi_path)
     files = os.listdir(tfidf_path)
-    cate_list = list(set([x.split('.')[0] for x in files]))
+    cate_list = []
+    for file in files:
+        t = file.split('.')[0]
+        if t not in cate_list:
+            cate_list.append(t)
     doc_num_list = []
     tfidf_corpus_total = None
     for cat in cate_list:

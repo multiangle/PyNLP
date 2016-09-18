@@ -48,9 +48,9 @@ def lossFun(inputs, targets, hprev):
         ys[t] = np.dot(Why, hs[t]) + by # unnormalized log probabilities for next chars
         # softmax regularization
         # p(t) = softmax(y(t))
-        ps[t] = np.exp(ys[t]) / np.sum(np.exp(ys[t])) # probabilities for next chars,
+        ps[t] = np.exp(ys[t]) / np.sum(np.exp(ys[t])) # probabilities for next chars, 对输出作softmax
         # loss += -log(value) 预期输出是1，因此这里的value值就是此次的代价函数，使用 -log(*) 使得离正确输出越远，代价函数就越高
-        loss += -np.log(ps[t][targets[t],0]) # softmax (cross-entropy loss)
+        loss += -np.log(ps[t][targets[t],0]) # softmax (cross-entropy loss) 代价函数是交叉熵
 
     # 将输入循环一遍以后，得到各个时间段的h, y 和 p
     # 得到此时累积的loss, 准备进行更新矩阵
@@ -59,16 +59,16 @@ def lossFun(inputs, targets, hprev):
     dbh, dby = np.zeros_like(bh), np.zeros_like(by)
     dhnext = np.zeros_like(hs[0])   # 下一个时间段的潜在层，初始化为零向量
     for t in reversed(range(len(inputs))): # 把时间作为维度，则梯度的计算应该沿着时间回溯
-        dy = np.copy(ps[t])  # 设dy为实际输出，而期望输出（单位向量）为y, 则 (dy-y)**2 可以作为代价函数，求导的 (dy-y)*导数
+        dy = np.copy(ps[t])  # 设dy为实际输出，而期望输出（单位向量）为y, 代价函数为交叉熵函数
         dy[targets[t]] -= 1 # backprop into y. see http://cs231n.github.io/neural-networks-case-study/#grad if confused here
-        dWhy += np.dot(dy, hs[t].T)  # dy * h(t).T h层值越大的项，如果错误，则惩罚越严重。反之，奖励越多（其实我觉得这边不是太严谨，没考虑softmax和tanh的求导）
+        dWhy += np.dot(dy, hs[t].T)  # dy * h(t).T h层值越大的项，如果错误，则惩罚越严重。反之，奖励越多（这边似乎没有考虑softmax的求导？）
         dby += dy # 这个没什么可说的，与dWhy一样，只不过h项=1， 所以直接等于dy
         dh = np.dot(Why.T, dy) + dhnext # backprop into h  z_t = Why*H_t + b_y H_t = tanh(Whh*H_t-1 + Whx*X_t), 第一阶段求导
         dhraw = (1 - hs[t] * hs[t]) * dh # backprop through tanh nonlinearity  第二阶段求导，注意tanh的求导
         dbh += dhraw   # dbh表示传递 到h层的误差
         dWxh += np.dot(dhraw, xs[t].T)    # 对Wxh的修正，同Why
         dWhh += np.dot(dhraw, hs[t-1].T)  # 对Whh的修正
-        dhnext = np.dot(Whh.T, dhraw)     # h层的误差通过Whh不停地累积（有个疑问，为什么不是Whh的逆，难道不是逆向传播的吗）
+        dhnext = np.dot(Whh.T, dhraw)     # h层的误差通过Whh不停地累积
     for dparam in [dWxh, dWhh, dWhy, dbh, dby]:
         np.clip(dparam, -5, 5, out=dparam) # clip to mitigate exploding gradients
     return loss, dWxh, dWhh, dWhy, dbh, dby, hs[len(inputs)-1]
