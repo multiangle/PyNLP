@@ -50,11 +50,11 @@ if __name__=='__main__':
     a = tf.nn.softmax(tf.matmul(h,W_y)+b_y)
 
     loss = tf.reduce_mean(tf.square(a-y))
-    optimizer = tf.train.GradientDescentOptimizer(0.5)
+    optimizer = tf.train.GradientDescentOptimizer(0.01)
     train = optimizer.minimize(loss)
 
     init = tf.initialize_all_variables()
-    sess = tf.Session()
+    sess = tf.InteractiveSession()
     sess.run(init)
 
     tags = data[:,2]
@@ -69,14 +69,14 @@ if __name__=='__main__':
     correct_prediction = tf.equal(tf.argmax(a,1),tf.argmax(y,1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
 
-    for i in range(1000):
+    for i in range(3000):
         batch = 10
         start = random.randint(0,train_data.__len__()-batch-1)
         input = train_data[start:start+batch,:]
         output = train_out[start:start+batch,:]
         sess.run(train, feed_dict={x:input, y:output})
         if i%100==0:
-            accuracy.eval(feed_dict={x:train_data,y:train_out})
+            print(accuracy.eval(feed_dict={x:test_data,y:test_out}))
 
 
 
