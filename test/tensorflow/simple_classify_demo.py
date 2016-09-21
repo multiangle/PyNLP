@@ -50,7 +50,7 @@ if __name__=='__main__':
     a = tf.nn.softmax(tf.matmul(h,W_y)+b_y)
 
     loss = tf.reduce_mean(tf.square(a-y))
-    optimizer = tf.train.GradientDescentOptimizer(0.01)
+    optimizer = tf.train.GradientDescentOptimizer(0.1)
     train = optimizer.minimize(loss)
 
     init = tf.initialize_all_variables()
@@ -69,6 +69,7 @@ if __name__=='__main__':
     correct_prediction = tf.equal(tf.argmax(a,1),tf.argmax(y,1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
 
+    err_ratio = []
     for i in range(3000):
         batch = 10
         start = random.randint(0,train_data.__len__()-batch-1)
@@ -76,13 +77,18 @@ if __name__=='__main__':
         output = train_out[start:start+batch,:]
         sess.run(train, feed_dict={x:input, y:output})
         if i%100==0:
-            print(accuracy.eval(feed_dict={x:test_data,y:test_out}))
+            err_ratio.append(1-accuracy.eval(feed_dict={x:test_data,y:test_out}))
 
 
+    res = sess.run(tf.argmax(a,1),feed_dict={x:data[:,0:2]})
 
-
-    #
-    #
-    #
-    # plot_dots(data)
-    # plt.show()
+    plt.subplot(2,2,1)
+    plot_dots(data)
+    plt.draw()
+    for i,r in enumerate(res):
+        data[i,2] = r
+    plt.subplot(2,2,2)
+    plot_dots(data)
+    plt.subplot(2,1,2)
+    plt.plot(err_ratio)
+    plt.show()
