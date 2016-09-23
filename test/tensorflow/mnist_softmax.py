@@ -28,29 +28,39 @@ import tensorflow as tf
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('data_dir', '/tmp/data/', 'Directory for storing data')
+flags.DEFINE_string('data_dir', '/tmp/data/', 'Directory for storing data') # 类似于宏定义，从左到右为：变量名，变量值，注释
 
-mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)
+mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)   # 读取数据集
 
-sess = tf.InteractiveSession()
 
-# Create the model
-x = tf.placeholder(tf.float32, [None, 784])
+# 建立抽象模型
+x = tf.placeholder(tf.float32, [None, 784]) # 占位符
+y_ = tf.placeholder(tf.float32, [None, 10])
 W = tf.Variable(tf.zeros([784, 10]))
 b = tf.Variable(tf.zeros([10]))
 y = tf.nn.softmax(tf.matmul(x, W) + b)
 
-# Define loss and optimizer
-y_ = tf.placeholder(tf.float32, [None, 10])
+# 定义损失函数和训练方法
+global_step = tf.Variable(0, name='global_step', trainable=False)
 cross_entropy = tf.reduce_mean(-tf.reduce_sum(y_ * tf.log(y), reduction_indices=[1]))
-train_step = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy)
+train_step = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy,global_step=global_step)
+
+sess = tf.InteractiveSession()      # 建立交互式会话
+# 训练可视化
+tf.scalar_summary("cross_entropy", cross_entropy)
+merged_summary_op = tf.merge_all_summaries()
+summary_writer = tf.train.SummaryWriter('/tmp/mnist_logs', sess.graph)
+
 
 # Train
 tf.initialize_all_variables().run()
 for i in range(1000):
     batch_xs, batch_ys = mnist.train.next_batch(100)
-    print(batch_xs.shape)
     train_step.run({x: batch_xs, y_: batch_ys})
+    if i%100==0:
+        summary_str = sess.run(merged_summary_op,feed_dict={x:mnist.test.images,y_:mnist.test.labels})
+        summary_writer.add_summary(summary_str, i)
+
 
 # Test trained model
 correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))

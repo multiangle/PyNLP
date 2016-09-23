@@ -38,12 +38,17 @@ if __name__=='__main__':
     output_dim = 2
     hidden_size = 100
 
-    x = tf.placeholder(tf.float32,[None, input_dim])
-    y = tf.placeholder(tf.float32,[None, output_dim])
-    W_h = tf.Variable(tf.truncated_normal([input_dim,hidden_size],stddev=0.1))
-    b_h = tf.Variable(tf.constant(0.1, shape=[hidden_size]))
-    W_y = tf.Variable(tf.truncated_normal([hidden_size,output_dim],stddev=0.1))
-    b_y = tf.Variable(tf.constant(0.1, shape=[output_dim]))
+    x = tf.placeholder(tf.float32,[None, input_dim],name='input')
+    y = tf.placeholder(tf.float32,[None, output_dim],name='output')
+
+    with tf.name_scope('hidden') as scope:
+        W_h = tf.Variable(tf.truncated_normal([input_dim,hidden_size],stddev=0.1),name='weights')
+        b_h = tf.Variable(tf.constant(0.1, shape=[hidden_size],name='bias'))
+        h = tf.Variable(tf.zeros(shape=[input_dim,hidden_size],name='h'))
+    with tf.name_scope('generate') as scope:
+        W_y = tf.Variable(tf.truncated_normal([hidden_size,output_dim],stddev=0.1),name='weights')
+        b_y = tf.Variable(tf.constant(0.1, shape=[output_dim],name='bias'))
+    print(W_y.name)
 
 
     h = tf.nn.sigmoid((tf.matmul(x,W_h)+b_h))  # mul 是点乘， matmul才是矩阵乘法
@@ -56,6 +61,11 @@ if __name__=='__main__':
     init = tf.initialize_all_variables()
     sess = tf.InteractiveSession()
     sess.run(init)
+
+    # 训练可视化
+    tf.scalar_summary("loss", loss)
+    merged_summary_op = tf.merge_all_summaries()
+    summary_writer = tf.train.SummaryWriter('/tmp/scd_logs', sess.graph)
 
     tags = data[:,2]
     output = np.zeros([data.__len__(),2])
@@ -78,6 +88,9 @@ if __name__=='__main__':
         sess.run(train, feed_dict={x:input, y:output})
         if i%100==0:
             err_ratio.append(1-accuracy.eval(feed_dict={x:test_data,y:test_out}))
+            summ_str = sess.run(merged_summary_op,feed_dict={x:test_data,y:test_out})
+            summary_writer.add_summary(summ_str,i)
+
 
 
     res = sess.run(tf.argmax(a,1),feed_dict={x:data[:,0:2]})
