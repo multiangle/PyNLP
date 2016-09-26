@@ -41,14 +41,14 @@ if __name__=='__main__':
     x = tf.placeholder(tf.float32,[None, input_dim],name='input')
     y = tf.placeholder(tf.float32,[None, output_dim],name='output')
 
-    with tf.name_scope('hidden') as scope:
-        W_h = tf.Variable(tf.truncated_normal([input_dim,hidden_size],stddev=0.1),name='weights')
-        b_h = tf.Variable(tf.constant(0.1, shape=[hidden_size],name='bias'))
-        h = tf.Variable(tf.zeros(shape=[input_dim,hidden_size],name='h'))
-    with tf.name_scope('generate') as scope:
-        W_y = tf.Variable(tf.truncated_normal([hidden_size,output_dim],stddev=0.1),name='weights')
-        b_y = tf.Variable(tf.constant(0.1, shape=[output_dim],name='bias'))
-    print(W_y.name)
+    # with tf.name_scope('hidden') as scope:
+    W_h = tf.Variable(tf.truncated_normal([input_dim,hidden_size],stddev=0.1),name='weights')
+    b_h = tf.Variable(tf.constant(0.1, shape=[hidden_size],name='bias'))
+    h = tf.Variable(tf.zeros(shape=[input_dim,hidden_size],name='h'))
+    # with tf.name_scope('generate') as scope:
+    W_y = tf.Variable(tf.truncated_normal([hidden_size,output_dim],stddev=0.1),name='weights')
+    b_y = tf.Variable(tf.constant(0.1, shape=[output_dim],name='bias'))
+    # print(W_y.name)
 
 
     h = tf.nn.sigmoid((tf.matmul(x,W_h)+b_h))  # mul 是点乘， matmul才是矩阵乘法

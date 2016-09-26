@@ -35,15 +35,16 @@ mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)   # 读取数据
 
 # 建立抽象模型
 x = tf.placeholder(tf.float32, [None, 784]) # 占位符
-y_ = tf.placeholder(tf.float32, [None, 10])
+y = tf.placeholder(tf.float32, [None, 10])
 W = tf.Variable(tf.zeros([784, 10]))
 b = tf.Variable(tf.zeros([10]))
-y = tf.nn.softmax(tf.matmul(x, W) + b)
+a = tf.nn.softmax(tf.matmul(x, W) + b)
 
 # 定义损失函数和训练方法
 global_step = tf.Variable(0, name='global_step', trainable=False)
-cross_entropy = tf.reduce_mean(-tf.reduce_sum(y_ * tf.log(y), reduction_indices=[1]))
-train_step = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy,global_step=global_step)
+cross_entropy = tf.reduce_mean(-tf.reduce_sum(y * tf.log(a), reduction_indices=[1]))  # 损失函数为交叉熵
+optimizer = tf.train.GradientDescentOptimizer(0.5) # 梯度下降法，学习速率为0.5
+train = optimizer.minimize(cross_entropy,global_step=global_step) # 训练目标：最小化损失函数
 
 sess = tf.InteractiveSession()      # 建立交互式会话
 # 训练可视化
@@ -56,14 +57,15 @@ summary_writer = tf.train.SummaryWriter('/tmp/mnist_logs', sess.graph)
 tf.initialize_all_variables().run()
 for i in range(1000):
     batch_xs, batch_ys = mnist.train.next_batch(100)
-    train_step.run({x: batch_xs, y_: batch_ys})
+    train.run({x: batch_xs, y: batch_ys})
     if i%100==0:
-        summary_str = sess.run(merged_summary_op,feed_dict={x:mnist.test.images,y_:mnist.test.labels})
+        summary_str = sess.run(merged_summary_op,feed_dict={x:mnist.test.images,y:mnist.test.labels})
         summary_writer.add_summary(summary_str, i)
 
 
 # Test trained model
-correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
+correct_prediction = tf.equal(tf.argmax(a, 1), tf.argmax(y, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-print(accuracy.eval({x: mnist.test.images, y_: mnist.test.labels}))
+print(sess.run(accuracy,feed_dict={x:mnist.test.images,y:mnist.test.labels}))
+# print(accuracy.eval({x: mnist.test.images, y: mnist.test.labels}))
 
