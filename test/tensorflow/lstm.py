@@ -190,7 +190,7 @@ class SmallConfig(object):
     max_max_epoch = 13      # 循环的次数
     keep_prob = 1.0
     lr_decay = 0.5
-    batch_size = 20
+    batch_size = 20         # 单批数据量
     vocab_size = 10000
 
 
@@ -309,14 +309,13 @@ if __name__=='__main__':
         tf.initialize_all_variables().run()
 
         for i in range(config.max_max_epoch):
-            lr_decay = config.lr_decay ** max(i - config.max_epoch, 0.0) #
+            lr_decay = config.lr_decay ** max(i - config.max_epoch, 0.0) # learning rate 衰减
             m.assign_lr(session, config.learning_rate * lr_decay)
 
             print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
-            train_perplexity = run_epoch(session, m, train_data, m.train_op,
-                                         verbose=True)
+            train_perplexity = run_epoch(session, m, train_data, m.train_op,verbose=True) # 训练困惑度
             print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
-            valid_perplexity = run_epoch(session, mvalid, valid_data, tf.no_op())
+            valid_perplexity = run_epoch(session, mvalid, valid_data, tf.no_op()) # 检验困惑度
             print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
 
         test_perplexity = run_epoch(session, mtest, test_data, tf.no_op())
