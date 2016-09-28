@@ -76,29 +76,33 @@ class PTBModel(object):
     """The PTB model."""
 
     def __init__(self, is_training, config):
+        """
+        :param is_training: 是否要进行训练
+        :param config:
+        """
         self.batch_size = batch_size = config.batch_size
         self.num_steps = num_steps = config.num_steps
         size = config.hidden_size
         vocab_size = config.vocab_size
 
-        self._input_data = tf.placeholder(tf.int32, [batch_size, num_steps])
-        self._targets = tf.placeholder(tf.int32, [batch_size, num_steps])
+        self._input_data = tf.placeholder(tf.int32, [batch_size, num_steps])    # 输入
+        self._targets = tf.placeholder(tf.int32, [batch_size, num_steps])       # 预期输出，两者都是index序列，长度为num_step
 
         # Slightly better results can be obtained with forget gate biases
         # initialized to 1 but the hyperparameters of the model would need to be
         # different than reported in the paper.
         lstm_cell = tf.nn.rnn_cell.BasicLSTMCell(size, forget_bias=0.0, state_is_tuple=True)
-        if is_training and config.keep_prob < 1:
+        if is_training and config.keep_prob < 1: # 在外面包裹一层dropout
             lstm_cell = tf.nn.rnn_cell.DropoutWrapper(
                 lstm_cell, output_keep_prob=config.keep_prob)
-        cell = tf.nn.rnn_cell.MultiRNNCell([lstm_cell] * config.num_layers, state_is_tuple=True)
+        cell = tf.nn.rnn_cell.MultiRNNCell([lstm_cell] * config.num_layers, state_is_tuple=True) # 多层lstm cell 堆叠起来
 
-        self._initial_state = cell.zero_state(batch_size, data_type())
+        self._initial_state = cell.zero_state(batch_size, data_type()) # 参数初始化
 
         with tf.device("/cpu:0"):
             embedding = tf.get_variable(
-                "embedding", [vocab_size, size], dtype=data_type())
-            inputs = tf.nn.embedding_lookup(embedding, self._input_data)
+                "embedding", [vocab_size, size], dtype=data_type()) # vocab size * hidden size, 将单词转成embedding描述
+            inputs = tf.nn.embedding_lookup(embedding, self._input_data) # 将输入seq用embedding表示, shape=[batch, steps, vocab size]
 
         if is_training and config.keep_prob < 1:
             inputs = tf.nn.dropout(inputs, config.keep_prob)
@@ -117,28 +121,30 @@ class PTBModel(object):
         with tf.variable_scope("RNN"):
             for time_step in range(num_steps):
                 if time_step > 0: tf.get_variable_scope().reuse_variables()
-                (cell_output, state) = cell(inputs[:, time_step, :], state)
-                outputs.append(cell_output)
-
+                (cell_output, state) = cell(inputs[:, time_step, :], state) # cell_out: [batch, hidden_size]
+                outputs.append(cell_output)  # output: shape[num_steps][batch,hidden_size]
+        # 把之前的list展开，成[batch, hidden_size*num_steps],然后 reshape, 成[batch*numsteps, hidden_size]
         output = tf.reshape(tf.concat(1, outputs), [-1, size])
         softmax_w = tf.get_variable(
-            "softmax_w", [size, vocab_size], dtype=data_type())
+            "softmax_w", [size, vocab_size], dtype=data_type()) # softmax_w , shape=[hidden_size, vocab_size]
         softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
-        logits = tf.matmul(output, softmax_w) + softmax_b
+        logits = tf.matmul(output, softmax_w) + softmax_b  # [batch*numsteps, vocab_size] 从隐藏语义转化成完全表示
+        # loss , shape=[batch*num_steps]
         loss = tf.nn.seq2seq.sequence_loss_by_example(
-            [logits],
-            [tf.reshape(self._targets, [-1])],
-            [tf.ones([batch_size * num_steps], dtype=data_type())])
-        self._cost = cost = tf.reduce_sum(loss) / batch_size
+            [logits],   # output [batch*numsteps, vocab_size]
+            [tf.reshape(self._targets, [-1])],  # target, [batch_size, num_steps] 然后展开成一维【列表】
+            [tf.ones([batch_size * num_steps], dtype=data_type())]) # weight
+        self._cost = cost = tf.reduce_sum(loss) / batch_size # 这么多批次的平均cost
         self._final_state = state
 
-        if not is_training:
+        if not is_training:  # 如果没有训练，则不需要更新state的值。
             return
 
         self._lr = tf.Variable(0.0, trainable=False)
         tvars = tf.trainable_variables()
-        grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),
+        grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),  # 不懂这里的梯度如何计算，只有一个常数了啊
                                           config.max_grad_norm)
+
         optimizer = tf.train.GradientDescentOptimizer(self._lr)
         self._train_op = optimizer.apply_gradients(zip(grads, tvars))
 
@@ -184,14 +190,14 @@ class SmallConfig(object):
     learning_rate = 1.0     # 学习速率
     max_grad_norm = 5
     num_layers = 2          # lstm层数
-    num_steps = 20          # 步进值？
+    num_steps = 20          # 单个数据中，序列的长度。
     hidden_size = 200       # 隐藏层规模
     max_epoch = 4           # epoch<max_epoch时，lr_decay值=1,epoch>max_epoch时,lr_decay逐渐减小
     max_max_epoch = 13      # 循环的次数
     keep_prob = 1.0
-    lr_decay = 0.5
-    batch_size = 20         # 单批数据量
-    vocab_size = 10000
+    lr_decay = 0.5          # 学习速率衰减
+    batch_size = 20         # 每批数据的规模，每批有20个。
+    vocab_size = 10000      # 词典规模，总共10K个词
 
 
 class MediumConfig(object):
@@ -244,7 +250,8 @@ class TestConfig(object):
 
 def run_epoch(session, model, data, eval_op, verbose=False):
     """Runs the model on the given data."""
-    epoch_size = ((len(data) // model.batch_size) - 1) // model.num_steps
+    # len(data)/model.batch_size 表示批次总数，共有这么多批
+    epoch_size = ((len(data) // model.batch_size) - 1) // model.num_steps  # // 表示整数除法
     start_time = time.time()
     costs = 0.0
     iters = 0
@@ -303,14 +310,14 @@ if __name__=='__main__':
         with tf.variable_scope("model", reuse=None, initializer=initializer):
             m = PTBModel(is_training=True, config=config)
         with tf.variable_scope("model", reuse=True, initializer=initializer):
-            mvalid = PTBModel(is_training=False, config=config)
+            mvalid = PTBModel(is_training=False, config=config) #
             mtest = PTBModel(is_training=False, config=eval_config)
 
         tf.initialize_all_variables().run()
 
         for i in range(config.max_max_epoch):
             lr_decay = config.lr_decay ** max(i - config.max_epoch, 0.0) # learning rate 衰减
-            m.assign_lr(session, config.learning_rate * lr_decay)
+            m.assign_lr(session, config.learning_rate * lr_decay) # 设置learning rate
 
             print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
             train_perplexity = run_epoch(session, m, train_data, m.train_op,verbose=True) # 训练困惑度
@@ -318,7 +325,7 @@ if __name__=='__main__':
             valid_perplexity = run_epoch(session, mvalid, valid_data, tf.no_op()) # 检验困惑度
             print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
 
-        test_perplexity = run_epoch(session, mtest, test_data, tf.no_op())
+        test_perplexity = run_epoch(session, mtest, test_data, tf.no_op())  # 测试困惑度
         print("Test Perplexity: %.3f" % test_perplexity)
 
 
