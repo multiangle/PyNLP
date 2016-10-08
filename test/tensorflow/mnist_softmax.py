@@ -60,6 +60,7 @@ for i in range(1000):
     train.run({x: batch_xs, y: batch_ys})
     if i%100==0:
         summary_str = sess.run(merged_summary_op,feed_dict={x:mnist.test.images,y:mnist.test.labels})
+        print(summary_str)
         summary_writer.add_summary(summary_str, i)
 
 

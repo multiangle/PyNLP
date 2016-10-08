@@ -1,9 +1,10 @@
 import tensorflow as tf
 
-
-tensor = tf.zeros(shape=[1,2])
-variable = tf.Variable(tensor)
 sess = tf.InteractiveSession()
-# print(sess.run(variable))  # 会报错
+a = tf.get_variable('a',shape=[2,5])
+b = a
+a_drop = tf.nn.dropout(a,0.8)
 sess.run(tf.initialize_all_variables())
-print(sess.run(variable))
+print(sess.run(b))
+print(sess.run(a_drop))
+
