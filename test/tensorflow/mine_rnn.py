@@ -43,21 +43,20 @@ class SimpleRNNModel(object):
         self.input_ids = tf.placeholder(tf.int32,[batch_size,num_steps],name='input_ids')
         self.target_ids =  tf.placeholder(tf.int32,[batch_size,num_steps],name='target_ids')
 
-        # # 对词典中各单词的embedding进行随机化
-        # with tf.device('/cpu:0'):
-        #     embedding = tf.get_variable('embedding',[vocab_size,hidden_size],dtype=tf.float32)
-        #     # input_embedding shape:[batch, num step, embedding size]
-        #     input_embedding = tf.nn.embedding_lookup(embedding,self.input_ids)
+        # 对词典中各单词的embedding进行随机化
+        with tf.device('/cpu:0'):
+            embedding = tf.get_variable('embedding',[vocab_size,hidden_size],dtype=tf.float32)
+            # input_embedding shape:[batch, num step, embedding size]
+            input_embedding = tf.nn.embedding_lookup(embedding,self.input_ids)
 
-        # diction = np.zeros(shape=[vocab_size,vocab_size],dtype=np.float32)
-        diction = np.identity(vocab_size,dtype=np.float32)
-        embedding = tf.Variable(diction,trainable=False)
-        input_embedding = tf.nn.embedding_lookup(embedding,self.input_ids)
+        # diction = np.identity(vocab_size,dtype=np.float32)
+        # embedding = tf.Variable(diction,trainable=False)
+        # input_embedding = tf.nn.embedding_lookup(embedding,self.input_ids)
 
         # 构建rnn单元，并外包一层 dropout 防止过拟合
         rnn_cell = tf.nn.rnn_cell.BasicRNNCell(hidden_size,hidden_size)
         rnn_cell = tf.nn.rnn_cell.DropoutWrapper(rnn_cell,output_keep_prob=0.8)
-        # cell = tf.nn.rnn_cell.MultiRNNCell([rnn_cell]*2,state_is_tuple=True)
+        rnn_cell = tf.nn.rnn_cell.MultiRNNCell([rnn_cell]*2,state_is_tuple=True)
         # rnn初始状态为0
         self.init_state = rnn_cell.zero_state(batch_size,tf.float32)
         state = self.init_state
@@ -67,8 +66,8 @@ class SimpleRNNModel(object):
         with tf.variable_scope('RNN'):
             for time_step in range(num_steps):
                 if time_step > 0: tf.get_variable_scope().reuse_variables()
-                state,rstate = rnn_cell(input_embedding[:,time_step,:],state)
-                outputs_embedding.append(state)
+                state,state = rnn_cell(input_embedding[:,time_step,:],state)
+                outputs_embedding.append(state[-1])
 
         output = tf.reshape(tf.concat(1,outputs_embedding),[-1,hidden_size]) # [batch*num_steps, hidden_size]
         # 将embedding 形式的输出转化成logits形式
@@ -104,7 +103,7 @@ class SimpleRNNModel(object):
 
         # 优化问题
         # optimizer = tf.train.GradientDescentOptimizer(learning_rate)
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.002)
+        optimizer = tf.train.AdamOptimizer()
         self.train_op = optimizer.apply_gradients(zip(grad,tvars))
         # self.train_op = optimizer.minimize(self.cost)
 

@@ -1,10 +1,12 @@
 import tensorflow as tf
+import numpy as np
 
 sess = tf.InteractiveSession()
-a = tf.get_variable('a',shape=[2,5])
-b = a
-a_drop = tf.nn.dropout(a,0.8)
-sess.run(tf.initialize_all_variables())
-print(sess.run(b))
-print(sess.run(a_drop))
 
+embedding = tf.Variable(np.identity(5,dtype=np.int32))
+input_ids = tf.placeholder(dtype=tf.int32,shape=[None])
+input_embedding = tf.nn.embedding_lookup(embedding,input_ids)
+
+sess.run(tf.initialize_all_variables())
+print(sess.run(embedding))
+print(sess.run(input_embedding,feed_dict={input_ids:[1,2,3,0,3,2,1]}))

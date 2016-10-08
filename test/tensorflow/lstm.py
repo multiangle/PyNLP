@@ -77,8 +77,7 @@ class PTBModel(object):
 
     def __init__(self, is_training, config):
         """
-        :param is_training: 是否要进行训练
-        :param config:
+        :param is_training: 是否要进行训练.如果is_training=False,则不会进行参数的修正。
         """
         self.batch_size = batch_size = config.batch_size
         self.num_steps = num_steps = config.num_steps
@@ -161,6 +160,7 @@ class PTBModel(object):
 
         # 梯度下降优化，指定学习速率
         optimizer = tf.train.GradientDescentOptimizer(self._lr)
+        # optimizer = tf.train.AdamOptimizer()
         # optimizer = tf.train.GradientDescentOptimizer(0.5)
         self._train_op = optimizer.apply_gradients(zip(grads, tvars))  # 将梯度应用于变量
 
@@ -267,7 +267,7 @@ class TestConfig(object):
 
 def run_epoch(session, model, data, eval_op, verbose=False):
     """Runs the model on the given data."""
-    # epoch_size 表示批次总数。也就是说，需要向session喂这么多批数据
+    # epoch_size 表示批次总数。也就是说，需要向session喂这么多次数据
     epoch_size = ((len(data) // model.batch_size) - 1) // model.num_steps  # // 表示整数除法
     start_time = time.time()
     costs = 0.0
@@ -275,7 +275,7 @@ def run_epoch(session, model, data, eval_op, verbose=False):
     state = session.run(model.initial_state)
     for step, (x, y) in enumerate(reader.ptb_iterator(data, model.batch_size,
                                                       model.num_steps)):
-        fetches = [model.cost, model.final_state, eval_op] # 要获取的值
+        fetches = [model.cost, model.final_state, eval_op] # 要进行的操作，注意训练时和其他时候eval_op的区别
         feed_dict = {}      # 设定input和target的值
         feed_dict[model.input_data] = x
         feed_dict[model.targets] = y
@@ -313,7 +313,7 @@ if __name__=='__main__':
         raise ValueError("Must set --data_path to PTB data directory")
     print(FLAGS.data_path)
 
-    raw_data = reader.ptb_raw_data(FLAGS.data_path)
+    raw_data = reader.ptb_raw_data(FLAGS.data_path) # 获取原始数据
     train_data, valid_data, test_data, _ = raw_data
 
     config = get_config()
@@ -322,19 +322,19 @@ if __name__=='__main__':
     eval_config.num_steps = 1
 
     with tf.Graph().as_default(), tf.Session() as session:
-        initializer = tf.random_uniform_initializer(-config.init_scale,
+        initializer = tf.random_uniform_initializer(-config.init_scale, # 定义如何对参数变量初始化
                                                     config.init_scale)
         with tf.variable_scope("model", reuse=None,initializer=initializer):
-            m = PTBModel(is_training=True, config=config)
+            m = PTBModel(is_training=True, config=config)   # 训练模型， is_trainable=True
         with tf.variable_scope("model", reuse=True,initializer=initializer):
-            mvalid = PTBModel(is_training=False, config=config) #
+            mvalid = PTBModel(is_training=False, config=config) #  交叉检验和测试模型，is_trainable=False
             mtest = PTBModel(is_training=False, config=eval_config)
 
         summary_writer = tf.train.SummaryWriter('/tmp/lstm_logs',session.graph)
 
-        tf.initialize_all_variables().run()
+        tf.initialize_all_variables().run()  # 对参数变量初始化
 
-        for i in range(config.max_max_epoch):
+        for i in range(config.max_max_epoch):   # 所有文本要重复多次进入模型训练
             # learning rate 衰减
             # 在 遍数小于max epoch时， lr_decay = 1 ; > max_epoch时， lr_decay = 0.5^(i-max_epoch)
             lr_decay = config.lr_decay ** max(i - config.max_epoch, 0.0)
