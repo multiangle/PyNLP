@@ -70,24 +70,24 @@ sess = tf.InteractiveSession()
 x = tf.placeholder(tf.float32, [None, 784])
 x_image = tf.reshape(x, [-1,28,28,1]) #将输入按照 conv2d中input的格式来reshape，reshape
 
-"""
+
 # 第一层
 # 卷积核(filter)的尺寸是5*5, 通道数为1，输出通道为32，即feature map 数目为32
 # 又因为strides=[1,1,1,1] 所以单个通道的输出尺寸应该跟输入图像一样。即总的卷积输出应该为?*28*28*32
 # 也就是单个通道输出为28*28，共有32个通道,共有?个批次
 # 在池化阶段，ksize=[1,2,2,1] 那么卷积结果经过池化以后的结果，其尺寸应该是？*14*14*32
-"""
+
 W_conv1 = weight_variable([5, 5, 1, 32])  # 卷积是在每个5*5的patch中算出32个特征，分别是patch大小，输入通道数目，输出通道数目
 b_conv1 = bias_variable([32])
 h_conv1 = tf.nn.elu(conv2d(x_image, W_conv1) + b_conv1)
 h_pool1 = max_pool_2x2(h_conv1)
 
-"""
+
 # 第二层
 # 卷积核5*5，输入通道为32，输出通道为64。
 # 卷积前图像的尺寸为 ?*14*14*32， 卷积后为?*14*14*64
 # 池化后，输出的图像尺寸为?*7*7*64
-"""
+
 W_conv2 = weight_variable([5, 5, 32, 64])
 b_conv2 = bias_variable([64])
 h_conv2 = tf.nn.elu(conv2d(h_pool1, W_conv2) + b_conv2)
