@@ -1,4 +1,7 @@
-import tensorflow as tf
 from pprint import pprint
+import numpy as np
 
-tf.reshape()
+batch_size = 10
+batch = np.ndarray(shape=(batch_size), dtype=np.int32)
+
+print(batch)
