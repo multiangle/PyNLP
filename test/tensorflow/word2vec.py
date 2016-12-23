@@ -132,7 +132,9 @@ num_skips = 2         # How many times to reuse an input to generate a label.
 # construction are also the most frequent.
 valid_size = 16     # Random set of words to evaluate similarity on.
 valid_window = 100  # Only pick dev samples in the head of the distribution.
-valid_examples = np.random.choice(valid_window, valid_size, replace=False)
+valid_examples = np.random.choice(valid_window, valid_size, replace=False)  # size: [1, n]
+print('valid examples')
+print(valid_examples)
 num_sampled = 64    # Number of negative examples to sample.
 
 graph = tf.Graph()
@@ -176,7 +178,7 @@ with graph.as_default():
     normalized_embeddings = embeddings / norm   # 规格化以后的向量
     valid_embeddings = tf.nn.embedding_lookup(
         normalized_embeddings, valid_dataset)
-    similarity = tf.matmul(
+    similarity = tf.matmul( # 计算出跟几个指定单词的相似度矩阵
         valid_embeddings, normalized_embeddings, transpose_b=True)
 
     # Add variable initializer.
