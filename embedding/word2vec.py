@@ -8,47 +8,64 @@ from pprint import pprint
 from pymongo import MongoClient
 import re
 import jieba
+import os.path as path
+import os
 
 class NEGModel():
     def __init__(self,
                  vocab_size=30000,
                  embedding_size=200,
                  win_len=3, # 单边窗口长
-                 num_sampled=64
+                 num_sampled=1000,
+                 model_path= None
                  ):
 
-        # model parameters
+        # 获得模型的基本参数
+        tf_vars = None
         self.batch_size     = None # 一批中数据个数, 目前是根据情况来的
-        self.vocab_size     = vocab_size
-        self.embedding_size = embedding_size
-        self.win_len        = win_len
-        self.num_sampled    = num_sampled
 
-        # train times
-        self.train_words_num = 0 # 训练的单词对数
-        self.train_sents_num = 0 # 训练的句子数
-        self.train_times_num = 0 # 训练的次数（一次可以有多个句子）
+        if model_path!=None:
+            tf_vars = self.load_model(model_path)
+        else:
+            # model parameters
+            self.vocab_size     = vocab_size
+            self.embedding_size = embedding_size
+            self.win_len        = win_len
+            self.num_sampled    = num_sampled
 
-        # train loss records
-        self.train_loss_records = collections.deque(maxlen=10) # 保存最近10次的误差
-        self.train_loss_k10 = 0
+            # train times
+            self.train_words_num = 0 # 训练的单词对数
+            self.train_sents_num = 0 # 训练的句子数
+            self.train_times_num = 0 # 训练的次数（一次可以有多个句子）
+
+            # train loss records
+            self.train_loss_records = collections.deque(maxlen=10) # 保存最近10次的误差
+            self.train_loss_k10 = 0
+
+        self.build_graph(tf_vars)
+        self.init_op()
 
     def init_op(self):
         self.sess = tf.Session(graph=self.graph)
         self.sess.run(self.init)
         self.summary_writer = tf.train.SummaryWriter('/tmp/simple_rnn', self.sess.graph)
 
-    def build_graph(self):
+    def build_graph(self,tf_vars):
         self.graph = tf.Graph()
         with self.graph.as_default():
             self.train_inputs = tf.placeholder(tf.int32, shape=[self.batch_size])
             self.train_labels = tf.placeholder(tf.int32, shape=[self.batch_size, 1])
-            self.embedding_dict = tf.Variable(
-                tf.random_uniform([self.vocab_size,self.embedding_size],-1.0,1.0)
-            )
-            nce_weight = tf.Variable(tf.truncated_normal([self.vocab_size, self.embedding_size],
-                                                         stddev=1.0/math.sqrt(self.embedding_size)))
-            nce_biases = tf.Variable(tf.zeros([self.vocab_size]))
+            if tf_vars==None:  # 如果是一个新模型
+                self.embedding_dict = tf.Variable(
+                    tf.random_uniform([self.vocab_size,self.embedding_size],-1.0,1.0)
+                )
+                self.nce_weight = tf.Variable(tf.truncated_normal([self.vocab_size, self.embedding_size],
+                                                             stddev=1.0/math.sqrt(self.embedding_size)))
+                self.nce_biases = tf.Variable(tf.zeros([self.vocab_size]))
+            else:   # 如果是从已有模型中载入：
+                self.embedding_dict = tf.Variable(tf_vars[0])
+                self.nce_weight = tf.Variable(tf_vars[1])
+                self.nce_biases = tf.Variable(tf_vars[2])
 
             # 将输入序列向量化
             embed = tf.nn.embedding_lookup(self.embedding_dict, self.train_inputs) # batch_size
@@ -56,8 +73,8 @@ class NEGModel():
             # 得到NCE损失
             self.loss = tf.reduce_mean(
                     tf.nn.nce_loss(
-                    weights = nce_weight,
-                    biases = nce_biases,
+                    weights = self.nce_weight,
+                    biases = self.nce_biases,
                     labels = self.train_labels,
                     inputs = embed,
                     num_sampled = self.num_sampled,
@@ -70,7 +87,7 @@ class NEGModel():
             self.merged_summary_op = tf.merge_all_summaries()
 
             # 根据 nce loss 来更新梯度和embedding
-            self.train_op = tf.train.GradientDescentOptimizer(learning_rate=0.03).minimize(self.loss)  # 训练操作
+            self.train_op = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(self.loss)  # 训练操作
 
             # 计算与指定若干单词的相似度
             self.test_word_id = tf.placeholder(tf.int32,shape=[None])
@@ -85,9 +102,6 @@ class NEGModel():
             self.init = tf.global_variables_initializer()
 
     def train_by_sentence(self, input_sentence=[]):  #  input_sentence: [sub_sent1, sub_sent2, ...]
-        if self.graph == None:
-            self.build_graph()
-            self.init_op()
         sent_num = input_sentence.__len__()
         batch_inputs = []
         batch_labels = []
@@ -127,7 +141,55 @@ class NEGModel():
         sim_matrix = self.sess.run(self.similarity, feed_dict={self.test_word_id:test_word_id_list})
         return sim_matrix
 
+    def save_model(self, save_path):
+        # 记录模型各参数
+        model = {}
+        var_names = ['vocab_size',      # int       model parameters
+                     'embedding_size',  # int
+                     'win_len',         # int
+                     'num_sampled',     # int
+                     'train_words_num', # int       train info
+                     'train_sents_num', # int
+                     'train_times_num', # int
+                     'train_loss_records',  # int   train loss
+                     'train_loss_k10',  # int
+                     ]
+        for var in var_names:
+            model[var] = eval('self.'+var)
+        ops = [self.embedding_dict,
+               self.nce_weight,
+               self.nce_biases
+               ]
+        res = self.sess.run(ops)
+        model['embedding_dict'] = res[0]
+        model['nce_weight'] = res[1]
+        model['nce_biases'] = res[2]
 
+        # 写入
+        if os.path.exists(save_path):
+            os.remove(save_path)
+        with open(save_path,'wb') as f:
+            pkl.dump(model,f)
+
+    def load_model(self, model_path):
+        if not os.path.exists(model_path):
+            raise RuntimeError('file not exists')
+        with open(model_path,'rb') as f:
+            model = pkl.load(f)
+            self.vocab_size = model['vocab_size']
+            self.embedding_size = model['embedding_size']
+            self.win_len = model['win_len']
+            self.num_sampled = model['num_sampled']
+            self.train_words_num = model['train_words_num']
+            self.train_sents_num = model['train_sents_num']
+            self.train_times_num = model['train_times_num']
+            self.train_loss_records = model['train_loss_records']
+            self.train_loss_k10 = model['train_loss_k10']
+            ret = []
+            ret.append(model['embedding_dict'])
+            ret.append(model['nce_weight'])
+            ret.append(model['nce_biases'])
+            return ret
 
 def gen_dict(dict_size=20000):
     content = None
@@ -164,9 +226,10 @@ for i in range(word_list.__len__()):
     word_dict[word_list[i]] = i
 
 # NEG版w2v 模型生成
-m = NEGModel(vocab_size=dict_size)
-m.build_graph()
-m.init_op()
+if os.path.exists('model'):
+    m = NEGModel(model_path='model')
+else:
+    m = NEGModel(vocab_size=dict_size)
 
 # 连接 mongodb
 client = MongoClient('localhost',27017)
@@ -175,12 +238,12 @@ table = db['latest_history']
 
 fetch_batch = 10000 # 一批从数据库读取10000条微博
 fetch_times = 0     # 统计已经读取几批
-fetch_total = 3000000 # 总共要读取多少条微博
+fetch_total = 1000000 # 总共要读取多少条微博
 fetch_total_times = fetch_total//fetch_batch    # 要读取的批数
 print(fetch_total_times)
 sentence_count = 0  # 已经处理的句子数目统计
 
-test_word_id_list = [10,20,40,80,160,320,640,1280,2560,5120,10240]
+test_word_id_list = [10,20,40,80,160,320,640,7,14,28,56,112,224]
 test_word_list = [word_list[x] for x in test_word_id_list]
 print('the test words are: '+str(test_word_list) )
 
@@ -226,9 +289,8 @@ for i in range(word_list.__len__()):
     info['embedding'] = embed[i,:]
     word_info_list.append(info)
     word_info_dict[word_list[i]] = info
-with open('word_info_list.pkl','wb') as f:
-    pkl.dump(word_info_list,f)
-with open('word_info_dict.pkl','wb') as f:
-    pkl.dump(word_info_dict,f)
-# for i in word_info_list:
-#     pprint(i)
+# with open('word_info_list.pkl','wb') as f:
+#     pkl.dump(word_info_list,f)
+# with open('word_info_dict.pkl','wb') as f:
+#     pkl.dump(word_info_dict,f)
+m.save_model('model')
