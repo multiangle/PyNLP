@@ -135,7 +135,8 @@ class NEGModel():
         self.train_loss_k10 = sum(self.train_loss_records)/self.train_loss_records.__len__()
         if self.train_sents_num % 1000 == 0 :
             self.summary_writer.add_summary(summary_str,self.train_sents_num)
-            print("{a} sentences dealed, loss: {b}".format(a=self.train_sents_num,b=self.train_loss_k10))
+            print("{a} sentences dealed, loss: {b}"
+                  .format(a=self.train_sents_num,b=self.train_loss_k10))
 
         # train times
         self.train_words_num += batch_inputs.__len__()
