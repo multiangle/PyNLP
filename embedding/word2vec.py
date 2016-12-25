@@ -83,8 +83,7 @@ class NEGModel():
             )
 
             # tensorboard 相关
-            tf.scalar_summary('perplexity',self.loss)
-            self.merged_summary_op = tf.merge_all_summaries()
+            tf.scalar_summary('loss',self.loss)
 
             # 根据 nce loss 来更新梯度和embedding
             self.train_op = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(self.loss)  # 训练操作
@@ -94,12 +93,18 @@ class NEGModel():
             vec_l2_model = tf.sqrt(  # 求各词向量的L2模
                 tf.reduce_sum(tf.square(self.embedding_dict),1,keep_dims=True)
             )
+
+            avg_l2_model = tf.reduce_mean(vec_l2_model)
+            tf.scalar_summary('avg_vec_model',avg_l2_model)
+
             norm_vec = self.embedding_dict / vec_l2_model
             test_embed = tf.nn.embedding_lookup(norm_vec, self.test_word_id)
             self.similarity = tf.matmul(test_embed, norm_vec, transpose_b=True)
 
             # 变量初始化
             self.init = tf.global_variables_initializer()
+
+            self.merged_summary_op = tf.merge_all_summaries()
 
     def train_by_sentence(self, input_sentence=[]):  #  input_sentence: [sub_sent1, sub_sent2, ...]
         sent_num = input_sentence.__len__()
@@ -220,7 +225,12 @@ def predeal(sentence):
 
 dict_size = 50000
 # 生成词典
-word_list = gen_dict(dict_size=dict_size)
+if os.path.exists('word_info_list.pkl'):
+    f = open('word_info_list.pkl','rb')
+    v = pkl.load(f)
+    word_list = [x['word'] for x in v]
+else:
+    word_list = gen_dict(dict_size=dict_size)
 word_dict = {}
 for i in range(word_list.__len__()):
     word_dict[word_list[i]] = i
@@ -289,8 +299,8 @@ for i in range(word_list.__len__()):
     info['embedding'] = embed[i,:]
     word_info_list.append(info)
     word_info_dict[word_list[i]] = info
-# with open('word_info_list.pkl','wb') as f:
-#     pkl.dump(word_info_list,f)
-# with open('word_info_dict.pkl','wb') as f:
-#     pkl.dump(word_info_dict,f)
+with open('word_info_list.pkl','wb') as f:
+    pkl.dump(word_info_list,f)
+with open('word_info_dict.pkl','wb') as f:
+    pkl.dump(word_info_dict,f)
 m.save_model('model')
