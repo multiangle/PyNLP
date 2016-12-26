@@ -66,13 +66,13 @@ class SimpleClassifier():
             # var_w : [tag_num, embed_size]
             # logits: [batch_size, tag_num]
             logits = tf.matmul(self.batch_embed_input, self.var_w, transpose_b=True) + self.var_bias
-
-            self.predict = tf.to_int32(tf.argmax(logits,axis=1))
+            logit_sigmoid = tf.sigmoid(logits)
+            self.predict = tf.to_int32(tf.argmax(logit_sigmoid,axis=1))
 
             self.error_times = tf.count_nonzero(tf.subtract(self.predict,self.batch_label))
             self.accuracy = self.batch_size - self.error_times
 
-            self.loss = tf.nn.seq2seq.sequence_loss([logits],
+            self.loss = tf.nn.seq2seq.sequence_loss([logit_sigmoid],
                                                [self.batch_label],
                                                [tf.ones([batch_size])])
 
@@ -104,19 +104,15 @@ class SimpleClassifier():
                     raise RuntimeError("类别id与类别数目不符")
                 batch_label.append(labels[index])
                 line = sentences[index]
-                sentence_embed = []
+                word_embed_list = []
                 for word in line:
                     id = self.word2id.get(word)
-                    if True:
-                        if sentence_embed==[]:
-                            sentence_embed = self.embedding[id,:]
-                        else:
-                            sentence_embed += self.embedding[id,:]  # 这边只是简单的将各单词的embed相加
-                sentence_embed /= line.__len__()
+                    word_embed_list.append(self.embedding[id,:])
+                sentence_embed = np.mean(word_embed_list,axis=0)
                 batch_sentence_embed.append(sentence_embed)
             batch_input = np.array(batch_sentence_embed)
             batch_label = np.array(batch_label)
-
+            print(batch_label)
             feed_dict = {self.batch_embed_input:batch_input, self.batch_label:batch_label}
             _, loss, accuracy, summary_str = self.sess.run([self.train_op,
                                                             self.loss,
