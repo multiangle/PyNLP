@@ -7,6 +7,9 @@ import os
 import math
 from pprint import pprint
 import collections
+from pymongo import MongoClient
+import jieba
+import TextDeal
 
 class SimpleClassifier():
     def __init__(self,
@@ -64,10 +67,10 @@ class SimpleClassifier():
             # logits: [batch_size, tag_num]
             logits = tf.matmul(self.batch_embed_input, self.var_w, transpose_b=True) + self.var_bias
 
-            self.predict = tf.expand_dims(tf.to_int32(tf.argmax(logits,axis=1)),0)
-            labels = tf.expand_dims(self.batch_label,0)
+            self.predict = tf.to_int32(tf.argmax(logits,axis=1))
 
-            self.accuracy = tf.matmul(self.predict,labels,transpose_b=True)
+            self.error_times = tf.count_nonzero(tf.subtract(self.predict,self.batch_label))
+            self.accuracy = self.batch_size - self.error_times
 
             self.loss = tf.nn.seq2seq.sequence_loss([logits],
                                                [self.batch_label],
@@ -101,14 +104,15 @@ class SimpleClassifier():
                     raise RuntimeError("类别id与类别数目不符")
                 batch_label.append(labels[index])
                 line = sentences[index]
-                sentence_embed = None
+                sentence_embed = []
                 for word in line:
-                    id = self.word2id.get(word,default=None)
-                    if id!=None:
-                        if sentence_embed==None:
+                    id = self.word2id.get(word)
+                    if True:
+                        if sentence_embed==[]:
                             sentence_embed = self.embedding[id,:]
                         else:
-                            sentence_embed += self.embedding[id,:]
+                            sentence_embed += self.embedding[id,:]  # 这边只是简单的将各单词的embed相加
+                sentence_embed /= line.__len__()
                 batch_sentence_embed.append(sentence_embed)
             batch_input = np.array(batch_sentence_embed)
             batch_label = np.array(batch_label)
@@ -121,7 +125,7 @@ class SimpleClassifier():
                                                            feed_dict=feed_dict)
             self.train_loss_records.append(loss)
             self.train_accu_records.append(accuracy)
-            if self.train_sent_num%100 == 0:
+            if self.train_sent_num%10 == 0:
                 avg_loss = sum(self.train_loss_records) / self.train_loss_records.__len__()
                 avg_accu = sum(self.train_accu_records) / self.train_accu_records.__len__()
                 self.summary_writer.add_summary(summary_str, self.train_sent_num)
@@ -150,11 +154,111 @@ class SimpleClassifier():
         with open(save_path,'wb') as f:
             pkl.dump(model_info,f)
 
+
+# 读取词库信息
 f = open('../embedding/word_info_list.pkl','rb')
 word_info_list = pkl.load(f)
+f.close()
 word_list = [x['word'] for x in word_info_list]
+word_set = set(word_list)
+word_dict = {}
+for word_info in word_info_list:
+    word_dict[word_info['word']] = word_info['id']
 embedding = [x['embedding'] for x in word_info_list]
 embedding_dict = np.array(embedding)
+
+
+# 读取数据
+client = MongoClient('localhost',27017)
+db = client['microblog_classify']
+table = db.test
+row_data = [x for x in table.find()]
+
+# 对数据进行拼接
+concat_data = []
+for line in row_data:
+    emotion = line.get('emotion',None)
+    if not emotion:
+        raise RuntimeError('invalid emotion value')
+    tmp_content = []
+    tmp_content += line.get('left_content',[])
+    tmp_content += line.get('retweeted_left_content',[])
+    tmp_sent = ''
+    for sub_sen in tmp_content:
+        tmp_sent += sub_sen
+    while '' in tmp_content:
+        tmp_content.remove('')
+
+    category = line.get('category',[])
+    if type(category)!=list:
+        category = [category]
+    for cat in category:
+        tmp_pack = {}
+        tmp_pack['text'] = tmp_sent
+        tmp_pack['category'] = cat
+        tmp_pack['emotion'] = emotion
+        concat_data.append(tmp_pack)
+
+# 对文本进行预处理
+def predeal(sentence):
+    if sentence.__len__()<3:
+        return []
+    sentence = TextDeal.removeLinkOnly(sentence)
+    words = [x for x in jieba.cut(sentence, cut_all=False)]
+    valid_words = []
+    my_own_stop = ['【','】','《','》','@']
+    for word in words:
+        if TextDeal.isStopWord(word):
+            continue
+        if word in my_own_stop:
+            continue
+        if word not in word_set:
+            continue
+        valid_words.append(word)
+    return  valid_words
+
+def cal_l2_model(np_vector):
+    return np.sqrt(np.sum(np.square(np_vector)))
+
+dealed_data = []
+emotion_list = []
+category_list = []
+for item in concat_data:
+    content = item['text']
+    if content.__len__()<3:
+        continue
+    valid_words = predeal(content)
+    if valid_words.__len__()==0:
+        continue
+    item['text'] = valid_words
+    dealed_data.append(item)
+
+    if item['emotion'] not in emotion_list:
+        emotion_list.append(item['emotion'])
+    if item['category'] not in category_list:
+        category_list.append(item['category'])
+
+# 建立模型并训练
 classifier = SimpleClassifier(word_list=word_list,
                               embedding = embedding_dict,
-                              tag_num = 5)
+                              tag_num = category_list.__len__())
+data_categorys = [category_list.index(x['category']) for x in dealed_data]
+data_sentences = [x['text'] for x in dealed_data]
+input_batch = 50
+sample_num = concat_data.__len__()
+intpu_batch_times = sample_num // input_batch
+for t in range(5):
+    for i in range(intpu_batch_times):
+        start_index = i*input_batch
+        end_index = (i+1)*input_batch
+        classifier.train_by_sentences(data_sentences[start_index:end_index],
+                                      data_categorys[start_index:end_index])
+
+
+
+
+
+
+
+
+
