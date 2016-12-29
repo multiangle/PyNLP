@@ -13,7 +13,7 @@ import os
 
 class NEGModel():
     def __init__(self,
-                 vocab_size=30000,
+                 vocab_list=None,
                  embedding_size=200,
                  win_len=3, # 单边窗口长
                  num_sampled=1000,
@@ -21,17 +21,22 @@ class NEGModel():
                  ):
 
         # 获得模型的基本参数
-        tf_vars = None
         self.batch_size     = None # 一批中数据个数, 目前是根据情况来的
 
         if model_path!=None:
-            tf_vars = self.load_model(model_path)
+            self.load_model(model_path)
         else:
             # model parameters
-            self.vocab_size     = vocab_size
+            assert type(vocab_list)==list
+            self.vocab_list     = vocab_list
+            self.vocab_size     = vocab_list.__len__()
             self.embedding_size = embedding_size
             self.win_len        = win_len
             self.num_sampled    = num_sampled
+
+            self.word2id = {}   # word => id 的映射
+            for i in range(self.vocab_size):
+                self.word2id[self.vocab_list[i]] = i
 
             # train times
             self.train_words_num = 0 # 训练的单词对数
@@ -42,30 +47,28 @@ class NEGModel():
             self.train_loss_records = collections.deque(maxlen=10) # 保存最近10次的误差
             self.train_loss_k10 = 0
 
-        self.build_graph(tf_vars)
+        self.build_graph()
         self.init_op()
+        if model_path!=None:
+            tf_model_path = os.path.join(model_path,'tf_vars')
+            self.saver.restore(self.sess,tf_model_path)
 
     def init_op(self):
         self.sess = tf.Session(graph=self.graph)
         self.sess.run(self.init)
         self.summary_writer = tf.train.SummaryWriter('/tmp/simple_rnn', self.sess.graph)
 
-    def build_graph(self,tf_vars):
+    def build_graph(self):
         self.graph = tf.Graph()
         with self.graph.as_default():
             self.train_inputs = tf.placeholder(tf.int32, shape=[self.batch_size])
             self.train_labels = tf.placeholder(tf.int32, shape=[self.batch_size, 1])
-            if tf_vars==None:  # 如果是一个新模型
-                self.embedding_dict = tf.Variable(
-                    tf.random_uniform([self.vocab_size,self.embedding_size],-1.0,1.0)
-                )
-                self.nce_weight = tf.Variable(tf.truncated_normal([self.vocab_size, self.embedding_size],
+            self.embedding_dict = tf.Variable(
+                tf.random_uniform([self.vocab_size,self.embedding_size],-1.0,1.0)
+            )
+            self.nce_weight = tf.Variable(tf.truncated_normal([self.vocab_size, self.embedding_size],
                                                              stddev=1.0/math.sqrt(self.embedding_size)))
-                self.nce_biases = tf.Variable(tf.zeros([self.vocab_size]))
-            else:   # 如果是从已有模型中载入：
-                self.embedding_dict = tf.Variable(tf_vars[0])
-                self.nce_weight = tf.Variable(tf_vars[1])
-                self.nce_biases = tf.Variable(tf_vars[2])
+            self.nce_biases = tf.Variable(tf.zeros([self.vocab_size]))
 
             # 将输入序列向量化
             embed = tf.nn.embedding_lookup(self.embedding_dict, self.train_inputs) # batch_size
@@ -83,7 +86,7 @@ class NEGModel():
             )
 
             # tensorboard 相关
-            tf.scalar_summary('loss',self.loss)
+            tf.scalar_summary('loss',self.loss)  # 让tensorflow记录参数
 
             # 根据 nce loss 来更新梯度和embedding
             self.train_op = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(self.loss)  # 训练操作
@@ -97,7 +100,9 @@ class NEGModel():
             avg_l2_model = tf.reduce_mean(vec_l2_model)
             tf.scalar_summary('avg_vec_model',avg_l2_model)
 
-            norm_vec = self.embedding_dict / vec_l2_model
+            self.embedding_dict = self.embedding_dict / vec_l2_model
+            norm_vec = self.embedding_dict
+            # self.embedding_dict = norm_vec # 对embedding向量正则化
             test_embed = tf.nn.embedding_lookup(norm_vec, self.test_word_id)
             self.similarity = tf.matmul(test_embed, norm_vec, transpose_b=True)
 
@@ -106,7 +111,11 @@ class NEGModel():
 
             self.merged_summary_op = tf.merge_all_summaries()
 
-    def train_by_sentence(self, input_sentence=[]):  #  input_sentence: [sub_sent1, sub_sent2, ...]
+            self.saver = tf.train.Saver()
+
+    def train_by_sentence(self, input_sentence=[]):
+        #  input_sentence: [sub_sent1, sub_sent2, ...]
+        # 每个sub_sent是一个单词序列，例如['这次','大选','让']
         sent_num = input_sentence.__len__()
         batch_inputs = []
         batch_labels = []
@@ -118,8 +127,12 @@ class NEGModel():
                     if index == i:
                         continue
                     else:
-                        batch_inputs.append(sent[index])
-                        batch_labels.append(sent[i])
+                        input_id = self.word2id[sent[index]]
+                        label_id = self.word2id[sent[i]]
+                        if not (input_id and label_id):
+                            continue
+                        batch_inputs.append(self.word2id[sent[index]])
+                        batch_labels.append(self.word2id[sent[i]])
         batch_inputs = np.array(batch_inputs,dtype=np.int32)
         batch_labels = np.array(batch_labels,dtype=np.int32)
         batch_labels = np.reshape(batch_labels,[batch_labels.__len__(),1])
@@ -148,9 +161,17 @@ class NEGModel():
         return sim_matrix
 
     def save_model(self, save_path):
+
+        if os.path.isfile(save_path):
+            raise RuntimeError('the save path should be a dir')
+        if not os.path.exists(save_path):
+            os.mkdir(save_path)
+
         # 记录模型各参数
         model = {}
         var_names = ['vocab_size',      # int       model parameters
+                     'vocab_list',      # list
+                     'word2id',         # dict
                      'embedding_size',  # int
                      'win_len',         # int
                      'num_sampled',     # int
@@ -162,27 +183,28 @@ class NEGModel():
                      ]
         for var in var_names:
             model[var] = eval('self.'+var)
-        ops = [self.embedding_dict,
-               self.nce_weight,
-               self.nce_biases
-               ]
-        res = self.sess.run(ops)
-        model['embedding_dict'] = res[0]
-        model['nce_weight'] = res[1]
-        model['nce_biases'] = res[2]
 
-        # 写入
-        if os.path.exists(save_path):
-            os.remove(save_path)
-        with open(save_path,'wb') as f:
+        param_path = os.path.join(save_path,'params.pkl')
+        if os.path.exists(param_path):
+            os.remove(param_path)
+        with open(param_path,'wb') as f:
             pkl.dump(model,f)
+
+        # 记录tf模型
+        tf_path = os.path.join(save_path,'tf_vars')
+        if os.path.exists(tf_path):
+            os.remove(tf_path)
+        self.saver.save(self.sess,tf_path)
 
     def load_model(self, model_path):
         if not os.path.exists(model_path):
             raise RuntimeError('file not exists')
-        with open(model_path,'rb') as f:
+        param_path = os.path.join(model_path,'params.pkl')
+        with open(param_path,'rb') as f:
             model = pkl.load(f)
+            self.vocab_list = model['vocab_list']
             self.vocab_size = model['vocab_size']
+            self.word2id = model['word2id']
             self.embedding_size = model['embedding_size']
             self.win_len = model['win_len']
             self.num_sampled = model['num_sampled']
@@ -191,11 +213,6 @@ class NEGModel():
             self.train_times_num = model['train_times_num']
             self.train_loss_records = model['train_loss_records']
             self.train_loss_k10 = model['train_loss_k10']
-            ret = []
-            ret.append(model['embedding_dict'])
-            ret.append(model['nce_weight'])
-            ret.append(model['nce_biases'])
-            return ret
 
 def gen_dict(dict_size=20000):
     content = None
@@ -225,11 +242,9 @@ def predeal(sentence):
     return sentence
 
 dict_size = 50000
-# 生成词典
 if os.path.exists('word_info_list.pkl'):
-    f = open('word_info_list.pkl','rb')
-    v = pkl.load(f)
-    word_list = [x['word'] for x in v]
+    with open('word_info_list.pkl','rb') as f:
+        word_list = [x['word'] for x in pkl.load(f)]
 else:
     word_list = gen_dict(dict_size=dict_size)
 word_dict = {}
@@ -237,10 +252,10 @@ for i in range(word_list.__len__()):
     word_dict[word_list[i]] = i
 
 # NEG版w2v 模型生成
-if os.path.exists('model'):
-    m = NEGModel(model_path='model')
+if os.path.exists('./model'):
+    m = NEGModel(model_path='./model')
 else:
-    m = NEGModel(vocab_size=dict_size)
+    m = NEGModel(vocab_list=word_list)
 
 # 连接 mongodb
 client = MongoClient('localhost',27017)
@@ -249,7 +264,7 @@ table = db['latest_history']
 
 fetch_batch = 10000 # 一批从数据库读取10000条微博
 fetch_times = 0     # 统计已经读取几批
-fetch_total = 1000000 # 总共要读取多少条微博
+fetch_total = 300000 # 总共要读取多少条微博
 fetch_total_times = fetch_total//fetch_batch    # 要读取的批数
 print(fetch_total_times)
 sentence_count = 0  # 已经处理的句子数目统计
@@ -275,8 +290,8 @@ while fetch_times<fetch_total_times:
                 valid_res = [x if x in word_dict else '' for x in cut_res]
                 while '' in valid_res:
                     valid_res.remove('')
-                id_res = [word_dict[x] for x in valid_res]
-                batch_list.append(id_res)
+                # id_res = [word_dict[x] for x in valid_res]
+                batch_list.append(valid_res)
                 sentence_count += 1
                 if sentence_count % batch_size == 0:
                     m.train_by_sentence(batch_list)
@@ -302,6 +317,4 @@ for i in range(word_list.__len__()):
     word_info_dict[word_list[i]] = info
 with open('word_info_list.pkl','wb') as f:
     pkl.dump(word_info_list,f)
-with open('word_info_dict.pkl','wb') as f:
-    pkl.dump(word_info_dict,f)
-m.save_model('model')
+m.save_model('./model')

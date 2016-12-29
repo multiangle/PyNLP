@@ -28,13 +28,15 @@ import math
 #         item_info['comments'] += line[5]
 #     word_info[word] = item_info
 #
-# with open('word_count','wb') as f:
+# with open('word_count.pkl','wb') as f:
 #     pkl.dump(word_info,f)
 
 content = None
-with open('word_count','rb') as f:
+with open('word_count.pkl','rb') as f:
     content = pkl.load(f)
 
 cont_list = [content[x] for x in content]
 cont_list.sort(key=lambda x:x['freq'],reverse=True)
-pprint(cont_list[:40000])
+word_list = [x['word'] for x in cont_list]
+pprint(word_list[:30000])
+

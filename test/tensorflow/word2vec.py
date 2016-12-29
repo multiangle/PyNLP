@@ -28,6 +28,7 @@ import numpy as np
 # from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 from matplotlib import pyplot as plt
+import pickle as pkl
 
 # Step 1: Download the data.
 url = 'http://mattmahoney.net/dc/'
@@ -185,7 +186,7 @@ with graph.as_default():
     init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
-num_steps = 100001
+num_steps = 300001
 
 with tf.Session(graph=graph) as session:
     # We must initialize all variables before we use them.
@@ -223,6 +224,8 @@ with tf.Session(graph=graph) as session:
                     log_str = "%s %s," % (log_str, close_word)
                 print(log_str)
     final_embeddings = normalized_embeddings.eval()
+    with open('embedding.pkl','wb') as f:
+        pkl.dump(final_embeddings,f)
 
 # Step 6: Visualize the embeddings.
 

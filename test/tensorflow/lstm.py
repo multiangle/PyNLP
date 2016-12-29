@@ -132,15 +132,17 @@ class PTBModel(object):
         softmax_w = tf.get_variable(
             "softmax_w", [size, vocab_size], dtype=data_type())
         softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
-        # [batch*numsteps, vocab_size] 从隐藏语义转化成完全表示
+        # logits: [batch*numsteps, vocab_size] 从隐藏语义转化成完全表示
         logits = tf.matmul(output, softmax_w) + softmax_b
 
         # loss , shape=[batch*num_steps]
         # 带权重的交叉熵计算
         loss = tf.nn.seq2seq.sequence_loss_by_example(
-            [logits],   # output [batch*numsteps, vocab_size]
-            [tf.reshape(self._targets, [-1])],  # target, [batch_size, num_steps] 然后展开成一维【列表】
+            [logits],   # logits: [batch*numsteps, vocab_size]
+            # target, [batch_size, num_steps] 然后展开成长为 batch_size*num_steps的一维【列表】
+            [tf.reshape(self._targets, [-1])],
             [tf.ones([batch_size * num_steps], dtype=data_type())]) # weight
+        print(loss)
         self._cost = cost = tf.reduce_sum(loss) / batch_size # 计算得到平均每批batch的误差
         self._final_state = state
 
