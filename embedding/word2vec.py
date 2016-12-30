@@ -17,12 +17,13 @@ class NEGModel():
                  embedding_size=200,
                  win_len=3, # 单边窗口长
                  num_sampled=1000,
+                 learning_rate=1.0,
+                 logdir='/tmp/simple_word2vec',
                  model_path= None
                  ):
 
         # 获得模型的基本参数
         self.batch_size     = None # 一批中数据个数, 目前是根据情况来的
-
         if model_path!=None:
             self.load_model(model_path)
         else:
@@ -33,6 +34,8 @@ class NEGModel():
             self.embedding_size = embedding_size
             self.win_len        = win_len
             self.num_sampled    = num_sampled
+            self.learning_rate  = learning_rate
+            self.logdir         = logdir
 
             self.word2id = {}   # word => id 的映射
             for i in range(self.vocab_size):
@@ -56,7 +59,7 @@ class NEGModel():
     def init_op(self):
         self.sess = tf.Session(graph=self.graph)
         self.sess.run(self.init)
-        self.summary_writer = tf.train.SummaryWriter('/tmp/simple_rnn', self.sess.graph)
+        self.summary_writer = tf.train.SummaryWriter(self.logdir, self.sess.graph)
 
     def build_graph(self):
         self.graph = tf.Graph()
@@ -126,8 +129,8 @@ class NEGModel():
                     if index == i:
                         continue
                     else:
-                        input_id = self.word2id[sent[index]]
-                        label_id = self.word2id[sent[i]]
+                        input_id = self.word2id.get(sent[index])
+                        label_id = self.word2id.get(sent[i])
                         if not (input_id and label_id):
                             continue
                         batch_inputs.append(self.word2id[sent[index]])
@@ -155,9 +158,16 @@ class NEGModel():
         self.train_sents_num += input_sentence.__len__()
         self.train_times_num += 1
 
-    def cal_similarity(self,test_word_id_list):
+    def cal_similarity(self,test_word_id_list,top_k=10):
         sim_matrix = self.sess.run(self.similarity, feed_dict={self.test_word_id:test_word_id_list})
-        return sim_matrix
+        test_words = []
+        near_words = []
+        for i in range(test_word_id_list.__len__()):
+            test_words.append(self.vocab_list[test_word_id_list[i]])
+            nearst_id = (-sim_matrix[i,:]).argsort()[1:top_k+1]
+            nearst_word = [self.vocab_list[x] for x in nearst_id]
+            near_words.append(nearst_word)
+        return test_words,near_words
 
     def save_model(self, save_path):
 
@@ -170,8 +180,10 @@ class NEGModel():
         model = {}
         var_names = ['vocab_size',      # int       model parameters
                      'vocab_list',      # list
+                     'learning_rate',   # int
                      'word2id',         # dict
                      'embedding_size',  # int
+                     'logdir',          # str
                      'win_len',         # int
                      'num_sampled',     # int
                      'train_words_num', # int       train info
@@ -203,8 +215,10 @@ class NEGModel():
             model = pkl.load(f)
             self.vocab_list = model['vocab_list']
             self.vocab_size = model['vocab_size']
+            self.logdir = model['logdir']
             self.word2id = model['word2id']
             self.embedding_size = model['embedding_size']
+            self.learning_rate = model['learning_rate']
             self.win_len = model['win_len']
             self.num_sampled = model['num_sampled']
             self.train_words_num = model['train_words_num']
@@ -297,12 +311,9 @@ if __name__=='__main__':
                         m.train_by_sentence(batch_list)
                         batch_list = []
                     if sentence_count % 10000 == 0:
-                        sim = m.cal_similarity(test_word_id_list)
-                        top_k = 10
+                        testword,nearword = m.cal_similarity(test_word_id_list)
                         for i in range(test_word_id_list.__len__()):
-                            nearst_id = (-sim[i,:]).argsort()[1:top_k+1]
-                            nearst_word = [word_list[x] for x in nearst_id]
-                            print('【{w}】的近似词有： {v}'.format(w=word_list[test_word_id_list[i]],v=str(nearst_word)))
+                            print('【{w}】的近似词有： {v}'.format(w=testword[i],v=str(nearword[i])))
 
     # 将 embedding信息储存
     embed = m.sess.run(m.normed_embedding)

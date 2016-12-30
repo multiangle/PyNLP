@@ -87,7 +87,7 @@ data, count, dictionary, reverse_dictionary = build_dataset(words)
 del words  # Hint to reduce memory.
 print('Most common words (+UNK)', count[:5])
 print('Sample data', data[:10], [reverse_dictionary[i] for i in data[:10]])
-
+print(dictionary)
 data_index = 0
 
 
@@ -197,6 +197,8 @@ with tf.Session(graph=graph) as session:
     for step in range(num_steps):
         batch_inputs, batch_labels = generate_batch(
             batch_size, num_skips, skip_window)
+        print(batch_inputs)
+        print(batch_labels)
         feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
 
         # We perform one update step by evaluating the optimizer op (including it
