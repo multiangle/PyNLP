@@ -186,7 +186,7 @@ with graph.as_default():
     init = tf.global_variables_initializer()
 
 # Step 5: Begin training.
-num_steps = 300001
+num_steps = 100001
 
 with tf.Session(graph=graph) as session:
     # We must initialize all variables before we use them.
@@ -255,5 +255,6 @@ try:
     labels = [reverse_dictionary[i] for i in range(plot_only)]
     plot_with_labels(low_dim_embs, labels)
 
-except ImportError:
+except Exception as e:
+    print(e)
     print("Please install sklearn, matplotlib, and scipy to visualize embeddings.")

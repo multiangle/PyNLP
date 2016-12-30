@@ -100,11 +100,10 @@ class NEGModel():
             avg_l2_model = tf.reduce_mean(vec_l2_model)
             tf.scalar_summary('avg_vec_model',avg_l2_model)
 
-            self.embedding_dict = self.embedding_dict / vec_l2_model
-            norm_vec = self.embedding_dict
+            self.normed_embedding = self.embedding_dict / vec_l2_model
             # self.embedding_dict = norm_vec # 对embedding向量正则化
-            test_embed = tf.nn.embedding_lookup(norm_vec, self.test_word_id)
-            self.similarity = tf.matmul(test_embed, norm_vec, transpose_b=True)
+            test_embed = tf.nn.embedding_lookup(self.normed_embedding, self.test_word_id)
+            self.similarity = tf.matmul(test_embed, self.normed_embedding, transpose_b=True)
 
             # 变量初始化
             self.init = tf.global_variables_initializer()
@@ -241,80 +240,81 @@ def predeal(sentence):
 
     return sentence
 
-dict_size = 50000
-if os.path.exists('word_info_list.pkl'):
-    with open('word_info_list.pkl','rb') as f:
-        word_list = [x['word'] for x in pkl.load(f)]
-else:
-    word_list = gen_dict(dict_size=dict_size)
-word_dict = {}
-for i in range(word_list.__len__()):
-    word_dict[word_list[i]] = i
+if __name__=='__main__':
+    dict_size = 50000
+    if os.path.exists('word_info_list.pkl'):
+        with open('word_info_list.pkl','rb') as f:
+            word_list = [x['word'] for x in pkl.load(f)]
+    else:
+        word_list = gen_dict(dict_size=dict_size)
+    word_dict = {}
+    for i in range(word_list.__len__()):
+        word_dict[word_list[i]] = i
 
-# NEG版w2v 模型生成
-if os.path.exists('./model'):
-    m = NEGModel(model_path='./model')
-else:
-    m = NEGModel(vocab_list=word_list)
+    # NEG版w2v 模型生成
+    if os.path.exists('./model'):
+        m = NEGModel(model_path='./model')
+    else:
+        m = NEGModel(vocab_list=word_list,embedding_size=200)
 
-# 连接 mongodb
-client = MongoClient('localhost',27017)
-db = client.microblog_spider
-table = db['latest_history']
+    # 连接 mongodb
+    client = MongoClient('localhost',27017)
+    db = client.microblog_spider
+    table = db['latest_history']
 
-fetch_batch = 10000 # 一批从数据库读取10000条微博
-fetch_times = 0     # 统计已经读取几批
-fetch_total = 300000 # 总共要读取多少条微博
-fetch_total_times = fetch_total//fetch_batch    # 要读取的批数
-print(fetch_total_times)
-sentence_count = 0  # 已经处理的句子数目统计
+    fetch_batch = 10000 # 一批从数据库读取10000条微博
+    fetch_times = 0     # 统计已经读取几批
+    fetch_total = 500000 # 总共要读取多少条微博
+    fetch_total_times = fetch_total//fetch_batch    # 要读取的批数
+    print(fetch_total_times)
+    sentence_count = 0  # 已经处理的句子数目统计
 
-test_word_id_list = [10,20,40,80,160,320,640,7,14,28,56,112,224]
-test_word_list = [word_list[x] for x in test_word_id_list]
-print('the test words are: '+str(test_word_list) )
+    test_word_id_list = [10,20,40,80,160,320,640,7,14,28,56,112,224]
+    test_word_list = [word_list[x] for x in test_word_id_list]
+    print('the test words are: '+str(test_word_list) )
 
-batch_list = []
-batch_size = 100    # 一批交给w2v模型处理的句子数目
-while fetch_times<fetch_total_times:
-    skip = (fetch_times * fetch_batch) % 1000000
-    v = table.find().skip(skip).limit(fetch_batch)
-    fetch_times += 1
-    for x in v:
-        content_list = x['dealed_text']['left_content']
-        for subs in content_list:
-            subs_dealed = predeal(subs)
-            if subs_dealed.__len__()>0:
-                cut_res = [x for x in jieba.cut(subs_dealed,cut_all=False)]
-                while '' in cut_res:
-                    cut_res.remove('')
-                valid_res = [x if x in word_dict else '' for x in cut_res]
-                while '' in valid_res:
-                    valid_res.remove('')
-                # id_res = [word_dict[x] for x in valid_res]
-                batch_list.append(valid_res)
-                sentence_count += 1
-                if sentence_count % batch_size == 0:
-                    m.train_by_sentence(batch_list)
-                    batch_list = []
-                if sentence_count % 10000 == 0:
-                    sim = m.cal_similarity(test_word_id_list)
-                    top_k = 10
-                    for i in range(test_word_id_list.__len__()):
-                        nearst_id = (-sim[i,:]).argsort()[1:top_k+1]
-                        nearst_word = [word_list[x] for x in nearst_id]
-                        print('【{w}】的近似词有： {v}'.format(w=word_list[test_word_id_list[i]],v=str(nearst_word)))
+    batch_list = []
+    batch_size = 100    # 一批交给w2v模型处理的句子数目
+    while fetch_times<fetch_total_times:
+        skip = (fetch_times * fetch_batch) % 1000000
+        v = table.find().skip(skip).limit(fetch_batch)
+        fetch_times += 1
+        for x in v:
+            content_list = x['dealed_text']['left_content']
+            for subs in content_list:
+                subs_dealed = predeal(subs)
+                if subs_dealed.__len__()>0:
+                    cut_res = [x for x in jieba.cut(subs_dealed,cut_all=False)]
+                    while '' in cut_res:
+                        cut_res.remove('')
+                    valid_res = [x if x in word_dict else '' for x in cut_res]
+                    while '' in valid_res:
+                        valid_res.remove('')
+                    # id_res = [word_dict[x] for x in valid_res]
+                    batch_list.append(valid_res)
+                    sentence_count += 1
+                    if sentence_count % batch_size == 0:
+                        m.train_by_sentence(batch_list)
+                        batch_list = []
+                    if sentence_count % 10000 == 0:
+                        sim = m.cal_similarity(test_word_id_list)
+                        top_k = 10
+                        for i in range(test_word_id_list.__len__()):
+                            nearst_id = (-sim[i,:]).argsort()[1:top_k+1]
+                            nearst_word = [word_list[x] for x in nearst_id]
+                            print('【{w}】的近似词有： {v}'.format(w=word_list[test_word_id_list[i]],v=str(nearst_word)))
 
-# 将 embedding信息储存
-embed = m.sess.run(m.embedding_dict)
-word_info_list = []
-word_info_dict = {}
-for i in range(word_list.__len__()):
-    info = {}
-    info['word'] = word_list[i]
-    info['id'] = i
-    info['embedding'] = embed[i,:]
-    word_info_list.append(info)
-    word_info_dict[word_list[i]] = info
-with open('word_info_list.pkl','wb') as f:
-    pkl.dump(word_info_list,f)
-m.save_model('./model')
+    # 将 embedding信息储存
+    embed = m.sess.run(m.normed_embedding)
+    word_info_list = []
+    word_info_dict = {}
+    for i in range(word_list.__len__()):
+        info = {}
+        info['word'] = word_list[i]
+        info['id'] = i
+        info['embedding'] = embed[i,:]
+        word_info_list.append(info)
+        word_info_dict[word_list[i]] = info
+    with open('word_info_list.pkl','wb') as f:
+        pkl.dump(word_info_list,f)
+    m.save_model('./model')

@@ -70,13 +70,14 @@ class SimpleClassifier():
             self.predict = tf.to_int32(tf.argmax(logit_sigmoid,axis=1))
 
             self.error_times = tf.count_nonzero(tf.subtract(self.predict,self.batch_label))
-            self.accuracy = self.batch_size - self.error_times
+            self.accuracy = (self.batch_size - self.error_times) / self.batch_size
+
 
             self.loss = tf.nn.seq2seq.sequence_loss([logit_sigmoid],
                                                [self.batch_label],
                                                [tf.ones([batch_size])])
 
-            self.train_op = tf.train.GradientDescentOptimizer(learning_rate=1.0).minimize(self.loss)
+            self.train_op = tf.train.GradientDescentOptimizer(learning_rate=5.0).minimize(self.loss)
 
             self.init = tf.global_variables_initializer()
 
@@ -107,12 +108,13 @@ class SimpleClassifier():
                 word_embed_list = []
                 for word in line:
                     id = self.word2id.get(word)
-                    word_embed_list.append(self.embedding[id,:])
+                    if id:
+                        word_embed_list.append(self.embedding[id,:])
                 sentence_embed = np.mean(word_embed_list,axis=0)
                 batch_sentence_embed.append(sentence_embed)
             batch_input = np.array(batch_sentence_embed)
             batch_label = np.array(batch_label)
-            print(batch_label)
+            # print(batch_label)
             feed_dict = {self.batch_embed_input:batch_input, self.batch_label:batch_label}
             _, loss, accuracy, summary_str = self.sess.run([self.train_op,
                                                             self.loss,
@@ -243,7 +245,7 @@ data_sentences = [x['text'] for x in dealed_data]
 input_batch = 50
 sample_num = concat_data.__len__()
 intpu_batch_times = sample_num // input_batch
-for t in range(5):
+for t in range(200):
     for i in range(intpu_batch_times):
         start_index = i*input_batch
         end_index = (i+1)*input_batch
