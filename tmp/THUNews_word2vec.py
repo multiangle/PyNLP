@@ -123,8 +123,9 @@ if __name__=='__main__':
         neg = NEGModel(model_path=neg_model_path)
     else:
         neg = NEGModel(vocab_list=valid_word_list,
-                       learning_rate=0.01,
-                       win_len=5,logdir='/tmp/THU_w2v')
+                       learning_rate=0.001,
+                       num_sampled=100,
+                       win_len=3,logdir='/tmp/THU_w2v')
 
     count = 0
     for file_info in file_info_list:
@@ -148,11 +149,11 @@ if __name__=='__main__':
         # neg.train_by_sentence([rm_words(jieba.cut(context,cut_all=False))])
         if count%250==0:
             test_word_id = [2,4,8,16,32,64,128,150,200,250,300]
-            test_word,near_word = neg.cal_similarity(test_word_id_list=test_word_id)
+            test_word,near_word = neg.cal_similarity(test_word_id_list=test_word_id,top_k=20)
             for i in range(test_word.__len__()):
                 print('【{w}】的近似词有： {v}'.format(w=test_word[i],v=str(near_word[i])))
 
-        if count%500 ==0:
+        if count%250 ==0:
             print('count={s}, saving model=='.format(s=count))
             neg.save_model(neg_model_path)
             norm_embedding = neg.sess.run(neg.normed_embedding)

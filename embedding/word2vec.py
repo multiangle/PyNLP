@@ -129,12 +129,12 @@ class NEGModel():
                     if index == i:
                         continue
                     else:
-                        input_id = self.word2id.get(sent[index])
-                        label_id = self.word2id.get(sent[i])
+                        input_id = self.word2id.get(sent[i])
+                        label_id = self.word2id.get(sent[index])
                         if not (input_id and label_id):
                             continue
-                        batch_inputs.append(self.word2id[sent[index]])
-                        batch_labels.append(self.word2id[sent[i]])
+                        batch_inputs.append(input_id)
+                        batch_labels.append(label_id)
         batch_inputs = np.array(batch_inputs,dtype=np.int32)
         batch_labels = np.array(batch_labels,dtype=np.int32)
         batch_labels = np.reshape(batch_labels,[batch_labels.__len__(),1])
@@ -160,6 +160,8 @@ class NEGModel():
 
     def cal_similarity(self,test_word_id_list,top_k=10):
         sim_matrix = self.sess.run(self.similarity, feed_dict={self.test_word_id:test_word_id_list})
+        sim_mean = np.mean(sim_matrix)
+        sim_var = np.mean(np.square(sim_matrix-sim_mean))
         test_words = []
         near_words = []
         for i in range(test_word_id_list.__len__()):
@@ -167,7 +169,7 @@ class NEGModel():
             nearst_id = (-sim_matrix[i,:]).argsort()[1:top_k+1]
             nearst_word = [self.vocab_list[x] for x in nearst_id]
             near_words.append(nearst_word)
-        return test_words,near_words
+        return test_words,near_words,sim_mean,sim_var
 
     def save_model(self, save_path):
 
@@ -311,9 +313,11 @@ if __name__=='__main__':
                         m.train_by_sentence(batch_list)
                         batch_list = []
                     if sentence_count % 10000 == 0:
-                        testword,nearword = m.cal_similarity(test_word_id_list)
+                        testword,nearword,sim_mean,sim_var = m.cal_similarity(test_word_id_list)
                         for i in range(test_word_id_list.__len__()):
                             print('【{w}】的近似词有： {v}'.format(w=testword[i],v=str(nearword[i])))
+                        print('num_steps={v}, 相似度均值:{m}, 相似度方差:{v2}'
+                              .format(v=sentence_count,m=sim_mean,v2=sim_var))
 
     # 将 embedding信息储存
     embed = m.sess.run(m.normed_embedding)
