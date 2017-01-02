@@ -87,7 +87,6 @@ data, count, dictionary, reverse_dictionary = build_dataset(words)
 del words  # Hint to reduce memory.
 print('Most common words (+UNK)', count[:5])
 print('Sample data', data[:10], [reverse_dictionary[i] for i in data[:10]])
-print(dictionary)
 data_index = 0
 
 
@@ -137,7 +136,7 @@ valid_examples = np.random.choice(valid_window, valid_size, replace=False)  # si
 print('valid examples')
 print(valid_examples)
 num_sampled = 64    # Number of negative examples to sample.
-
+#
 graph = tf.Graph()
 
 with graph.as_default():
@@ -177,6 +176,11 @@ with graph.as_default():
     # Compute the cosine similarity between minibatch examples and all embeddings.
     norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), 1, keep_dims=True)) # 求词向量的L2模
     normalized_embeddings = embeddings / norm   # 规格化以后的向量
+
+    sim_matrix = tf.matmul(normalized_embeddings,normalized_embeddings,transpose_b=True)
+    sim_mean = tf.reduce_mean(sim_matrix)
+    sim_var = tf.reduce_sum(tf.square(sim_matrix-sim_mean))
+
     valid_embeddings = tf.nn.embedding_lookup(
         normalized_embeddings, valid_dataset)
     similarity = tf.matmul( # 计算出跟几个指定单词的相似度矩阵
@@ -197,8 +201,8 @@ with tf.Session(graph=graph) as session:
     for step in range(num_steps):
         batch_inputs, batch_labels = generate_batch(
             batch_size, num_skips, skip_window)
-        print(batch_inputs)
-        print(batch_labels)
+        # print(batch_inputs)
+        # print(batch_labels)
         feed_dict = {train_inputs: batch_inputs, train_labels: batch_labels}
 
         # We perform one update step by evaluating the optimizer op (including it
@@ -210,7 +214,7 @@ with tf.Session(graph=graph) as session:
             if step > 0:
                 average_loss /= 2000
             # The average loss is an estimate of the loss over the last 2000 batches.
-            print("Average loss at step ", step, ": ", average_loss)
+            print("step: {s}, loss:{l}".format(s=step,l=average_loss))
             average_loss = 0
 
         # Note that this is expensive (~20% slowdown if computed every 500 steps)

@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from embedding.word2vec import  NEGModel
+from embedding.word2vec import NEGModel
 import os
 from pprint import pprint
 import random
@@ -75,6 +75,11 @@ if __name__=='__main__':
             pkl.dump(file_info_list,f)
 
     # step 2 统计单词，生成词典
+    print(os.path.exists(files_info_list_path))
+    print(os.path.abspath('.'))
+    print(os.path.exists(word_list_path))
+    print(os.path.exists('word_list_path.pkl'))
+    print(os.path.exists('./word_list_path.pkl'))
     if os.path.exists(word_list_path) and os.path.exists(word_dict_path):
         with open(word_list_path,'rb') as f:
             word_list = pkl.load(f)
@@ -108,7 +113,7 @@ if __name__=='__main__':
                     word_dict[word]['sub_count'][lable] += 1
                 else:
                     word_dict[word]['sub_count'][lable] = 1
-                # print(word_dict[word])
+                    # print(word_dict[word])
 
         with open(word_list_path,'wb') as f:
             pkl.dump(word_list,f)
