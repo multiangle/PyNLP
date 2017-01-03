@@ -17,6 +17,7 @@ def rm_chars(sent):
         '□',
         '■',
         '●',
+        '◆',
     ]
     for char in sent:
         if char in warn_chars:
@@ -75,11 +76,6 @@ if __name__=='__main__':
             pkl.dump(file_info_list,f)
 
     # step 2 统计单词，生成词典
-    print(os.path.exists(files_info_list_path))
-    print(os.path.abspath('.'))
-    print(os.path.exists(word_list_path))
-    print(os.path.exists('word_list_path.pkl'))
-    print(os.path.exists('./word_list_path.pkl'))
     if os.path.exists(word_list_path) and os.path.exists(word_dict_path):
         with open(word_list_path,'rb') as f:
             word_list = pkl.load(f)
@@ -102,7 +98,7 @@ if __name__=='__main__':
                     tmp_v = {}
                     tmp_v['word'] = word
                     tmp_v['id'] = word_list.__len__()
-                    tmp_v['count'] = 0
+                    tmp_v['count'] = 1
                     tmp_v['sub_count'] = {}
                     word_dict[word] = tmp_v
                     word_list.append(tmp_v)
@@ -154,7 +150,7 @@ if __name__=='__main__':
         # neg.train_by_sentence([rm_words(jieba.cut(context,cut_all=False))])
         if count%250==0:
             test_word_id = [2,4,8,16,32,64,128,150,200,250,300]
-            test_word,near_word = neg.cal_similarity(test_word_id_list=test_word_id,top_k=20)
+            test_word,near_word,_,_ = neg.cal_similarity(test_word_id_list=test_word_id,top_k=20)
             for i in range(test_word.__len__()):
                 print('【{w}】的近似词有： {v}'.format(w=test_word[i],v=str(near_word[i])))
 
