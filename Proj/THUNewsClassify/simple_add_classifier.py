@@ -7,6 +7,9 @@ import collections
 from Proj.THUNewsClassify.THUNews_word2vec import read_text,rm_words
 import TextDeal
 import math
+from pprint import pprint
+import matplotlib.pyplot as plt
+from Proj.THUNewsClassify.chi_square import ChiSquareCalculator
 
 # 该分类器比较简单，即将单词的embedding相加以后放入神经网络进行线性分类(即单层神经网络)
 
@@ -36,7 +39,7 @@ class SimpleClassifier():
             label_matrix = tf.diag(tf.ones(self.label_size))
             embed_label = tf.nn.embedding_lookup(label_matrix,self.train_label)
 
-            self.weight = tf.Variable(tf.random_normal(shape=[self.label_size,self.embed_size],stddev=1.0/math.sqrt(self.embed_size)))
+            self.weight = tf.Variable(tf.truncated_normal(shape=[self.label_size,self.embed_size],stddev=1.0/math.sqrt(self.embed_size)))
             self.biase = tf.Variable(tf.zeros([self.label_size]))
 
             tmp_y = tf.matmul(self.train_input,self.weight,transpose_b=True) + self.biase
@@ -46,9 +49,9 @@ class SimpleClassifier():
             self.predict = tf.cast(tf.argmax(tmp_g,axis=1),tf.float32)
             self.error_num = tf.count_nonzero(label_float-self.predict)
             
-            self.loss = tf.reduce_mean(-tf.reduce_sum(embed_label*tf.log(tmp_g),axis=1))
+            self.loss = tf.reduce_mean(-tf.reduce_sum(embed_label*tf.log(tmp_g+0.0001)+(1-embed_label)*tf.log(1+0.0001-tmp_g),axis=1))
 
-            # self.train_op = tf.train.GradientDescentOptimizer(learning_rate=1.0).minimize(self.loss)
+            # self.train_op = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(self.loss)
             self.train_op = tf.train.AdagradOptimizer(learning_rate=1).minimize(self.loss)
             self.init_op = tf.global_variables_initializer()
 
@@ -57,18 +60,44 @@ def pick_valid_word(word_info_list, dict_size):
     word_info_list = word_info_list[:dict_size]
     word2id = {}
     id2word = {}
-    for line in word_info_list:
+    for i,line in enumerate(word_info_list):
         word = line['word']
-        id = line['id']
-        word2id[word] = id
-        id2word[id] = word
+        word2id[word] = i
+        id2word[i] = word
     return word2id,id2word
+
+def pick_valid_word_chisquare(word_info_list, dict_size):
+    label_list = ['娱乐', '股票', '体育', '科技', '房产', '社会', '游戏', '财经', '时政', '家居', '彩票', '教育', '时尚', '星座']
+    word_info_list.sort(key=lambda x:x['count'],reverse=True)
+    word_info_list = word_info_list[:50000]
+    word2id = {}
+    id2word = {}
+    for i,line in enumerate(word_info_list):
+        word = line['word']
+        word2id[word] = i
+        id2word[i] = word
+    c = ChiSquareCalculator(50000,len(label_list))
+    for info in word_info_list:
+        word = info['word']
+        word_id = word2id[word]
+        for item in info['sub_count']:
+            c.add(word_id,label_list.index(item),info['sub_count'][item])
+    c.cal()
+    chi_order = np.argsort(-c.chi_value)[:dict_size]
+    valid_word2id = {}
+    valid_id2word = {}
+    for id in chi_order:
+        word = id2word[id]
+        valid_word2id[word] = id
+        valid_id2word[id] =  word
+    return valid_word2id,valid_id2word
 
 
 if __name__=='__main__':
     with open('word_list_path.pkl','rb') as f:
         word_info_list = pkl.load(f)
-        word2id,id2word = pick_valid_word(word_info_list,100)
+        # word2id,id2word = pick_valid_word(word_info_list,50000)
+        word2id,id2word = pick_valid_word_chisquare(word_info_list,40000)
     with open('THUCNews.pkl','rb') as f:
         embedding = pkl.load(f)
     with open('file_info_list.pkl','rb') as f:
@@ -79,12 +108,15 @@ if __name__=='__main__':
         if label not in label_list:
             label_list.append(label)
 
+    print(label_list)
     label_size = label_list.__len__()
     embed_size = embedding[0].__len__()
     model = SimpleClassifier(label_size=label_size,embed_size=embed_size)
     count = 0
-    loss_deque = collections.deque(maxlen=100)
-    error_deque = collections.deque(maxlen=100)
+    loss_deque = collections.deque(maxlen=500)
+    error_deque = collections.deque(maxlen=500)
+    seperate_error_deque = [collections.deque(maxlen=500) for _ in range(label_size)]
+    seperate_count = [0]*label_size
     len_deque = collections.deque(maxlen=100)
     print('times\tavg loss\tavg err\tavg len')
     for file_info in file_info_list:
@@ -101,7 +133,8 @@ if __name__=='__main__':
             if (word in word2id) and (not TextDeal.isStopWord(word)):
                 valid_word_list.append(word)
                 word_embed_list.append(embedding[word2id[word]])
-        print(valid_word_list)
+        if valid_word_list.__len__()==0:
+            continue
         label_id = label_list.index(file_label)
         context_embed = np.mean(np.array(word_embed_list),axis=0)
 
@@ -114,11 +147,20 @@ if __name__=='__main__':
         loss_deque.append(loss)
         error_deque.append(err_num)
         len_deque.append(word_embed_list.__len__())
+        seperate_error_deque[label_list.index(file_label)].append(err_num)
+        seperate_count[label_list.index(file_label)] += 1
 
-        if count%100==0:
+        if count%500==0:
             avg_loss = np.mean(loss_deque)
             avg_err = np.mean(error_deque)
             avg_len = np.mean(len_deque)
+
             print('{a}\t{b}\t{c}\t{d}'.format(a=count,b=avg_loss,c=avg_err,d=avg_len))
+
+
+        if count%5000==0:
+            avg_seperate_err = [1-np.mean(x) for x in seperate_error_deque]
+            print('分类正确率：',str(avg_seperate_err))
+            print('分类数目:',str(seperate_count))
 
         count += 1
