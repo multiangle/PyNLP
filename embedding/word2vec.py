@@ -135,6 +135,8 @@ class NEGModel():
                             continue
                         batch_inputs.append(input_id)
                         batch_labels.append(label_id)
+        if len(batch_inputs)==0:
+            return
         batch_inputs = np.array(batch_inputs,dtype=np.int32)
         batch_labels = np.array(batch_labels,dtype=np.int32)
         batch_labels = np.reshape(batch_labels,[batch_labels.__len__(),1])
@@ -147,7 +149,7 @@ class NEGModel():
 
         # train loss
         self.train_loss_records.append(loss_val)
-        self.train_loss_k10 = sum(self.train_loss_records)/self.train_loss_records.__len__()
+        self.train_loss_k10 = np.mean(self.train_loss_records)
         if self.train_sents_num % 1000 == 0 :
             self.summary_writer.add_summary(summary_str,self.train_sents_num)
             print("{a} sentences dealed, loss: {b}"
