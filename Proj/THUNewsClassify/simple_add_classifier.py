@@ -4,12 +4,11 @@ import copy
 import jieba
 import numpy as np
 import collections
-from Proj.THUNewsClassify.THUNews_word2vec import read_text,rm_words
+from Proj.THUNewsClassify.util import read_text,rm_words,pick_valid_word,pick_valid_word_chisquare
 import TextDeal
 import math
 from pprint import pprint
 import matplotlib.pyplot as plt
-from Proj.THUNewsClassify.chi_square import ChiSquareCalculator
 
 # 该分类器比较简单，即将单词的embedding相加以后放入神经网络进行线性分类(即单层神经网络)
 
@@ -36,6 +35,7 @@ class SimpleClassifier():
             self.train_label = tf.placeholder(tf.int32,shape=[self.batch_size],name='train_label')
             label_float = tf.cast(self.train_label,tf.float32)
 
+            # label_matrix = tf.Variable(tf.diag(tf.ones(self.label_size)),trainable=False)
             label_matrix = tf.diag(tf.ones(self.label_size))
             embed_label = tf.nn.embedding_lookup(label_matrix,self.train_label)
 
@@ -54,44 +54,6 @@ class SimpleClassifier():
             # self.train_op = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(self.loss)
             self.train_op = tf.train.AdagradOptimizer(learning_rate=1).minimize(self.loss)
             self.init_op = tf.global_variables_initializer()
-
-def pick_valid_word(word_info_list, dict_size):
-    word_info_list.sort(key=lambda x:x['count'],reverse=True)
-    word_info_list = word_info_list[:dict_size]
-    word2id = {}
-    id2word = {}
-    for i,line in enumerate(word_info_list):
-        word = line['word']
-        word2id[word] = i
-        id2word[i] = word
-    return word2id,id2word
-
-def pick_valid_word_chisquare(word_info_list, dict_size):
-    label_list = ['娱乐', '股票', '体育', '科技', '房产', '社会', '游戏', '财经', '时政', '家居', '彩票', '教育', '时尚', '星座']
-    word_info_list.sort(key=lambda x:x['count'],reverse=True)
-    word_info_list = word_info_list[:50000]
-    word2id = {}
-    id2word = {}
-    for i,line in enumerate(word_info_list):
-        word = line['word']
-        word2id[word] = i
-        id2word[i] = word
-    c = ChiSquareCalculator(50000,len(label_list))
-    for info in word_info_list:
-        word = info['word']
-        word_id = word2id[word]
-        for item in info['sub_count']:
-            c.add(word_id,label_list.index(item),info['sub_count'][item])
-    c.cal()
-    chi_order = np.argsort(-c.chi_value)[:dict_size]
-    valid_word2id = {}
-    valid_id2word = {}
-    for id in chi_order:
-        word = id2word[id]
-        valid_word2id[word] = id
-        valid_id2word[id] =  word
-    return valid_word2id,valid_id2word
-
 
 if __name__=='__main__':
     with open('word_list_path.pkl','rb') as f:

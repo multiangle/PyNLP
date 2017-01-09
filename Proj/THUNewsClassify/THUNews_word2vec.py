@@ -7,45 +7,8 @@ import random
 import jieba
 import TextDeal
 import pickle as pkl
+from Proj.THUNewsClassify.util import read_text,rm_words
 
-def rm_chars(sent):
-    new_sent = ''
-    warn_chars = [
-        '\u3000',
-        '\n',
-        '\xa0',
-        '□',
-        '■',
-        '●',
-        '◆',
-    ]
-    for char in sent:
-        if char in warn_chars:
-            continue
-        new_sent += char
-    return new_sent
-
-def read_text(file_path):
-    lines = []
-    with open(file_path) as f:
-        line = f.readline()
-        while line:
-            dealed_line = rm_chars(line)
-            if dealed_line.__len__()>0:
-                lines.append(dealed_line)
-            line = f.readline()
-        return lines
-
-def rm_words(word_list):
-    new_words = []
-    for word in word_list:
-        if not TextDeal.isValidWord(word):
-            continue
-        banned_word = [' ','，',',','.']
-        if word in banned_word:
-            continue
-        new_words.append(word)
-    return new_words
 
 if __name__=='__main__':
     data_root_path = '/media/multiangle/F/DataSet/THUCNews/THUCNewsPart'
