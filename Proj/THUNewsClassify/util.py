@@ -42,6 +42,20 @@ def rm_words(word_list):
         new_words.append(word)
     return new_words
 
+def rm_invalid_words(word_list):
+    return rm_words(word_list)
+
+def rm_stop_words(word_list):
+    new_words = []
+    for word in word_list:
+        if TextDeal.isStopWord(word):
+            continue
+        banned_word = [' ','，',',','.']
+        if word in banned_word:
+            continue
+        new_words.append(word)
+    return new_words
+
 def pick_valid_word(word_info_list, dict_size):
     word_info_list.sort(key=lambda x:x['count'],reverse=True)
     word_info_list = word_info_list[:dict_size]

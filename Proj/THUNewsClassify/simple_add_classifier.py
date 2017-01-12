@@ -55,11 +55,67 @@ class SimpleClassifier():
             self.train_op = tf.train.AdagradOptimizer(learning_rate=1).minimize(self.loss)
             self.init_op = tf.global_variables_initializer()
 
+class MLPClassifier():
+    def __init__(self,
+                 label_size,
+                 batch_size = None,
+                 embed_size = 200,
+                 ):
+        self.label_size = label_size
+        self.batch_size = batch_size
+        self.embed_size = embed_size
+
+        self.buildGraph()
+
+        self.sess = tf.Session(graph=self.graph)
+        self.sess.run(self.init_op)
+
+    def buildGraph(self):
+        self.graph = tf.Graph()
+        with self.graph.as_default():
+            # train_input , [batch_size * embed_size] 一个batch有多条
+            self.train_input = tf.placeholder(tf.float32,shape=[self.batch_size,self.embed_size],name='train_input')
+            self.train_label = tf.placeholder(tf.int32,shape=[self.batch_size],name='train_label')
+            label_float = tf.cast(self.train_label,tf.float32)
+
+            # label_matrix = tf.Variable(tf.diag(tf.ones(self.label_size)),trainable=False)
+            label_matrix = tf.diag(tf.ones(self.label_size))
+            embed_label = tf.nn.embedding_lookup(label_matrix,self.train_label)
+
+            hidden_unit = 50
+            self.weight = tf.Variable(tf.truncated_normal(shape=[hidden_unit,self.embed_size],stddev=1.0/math.sqrt(self.embed_size)))
+            self.biase = tf.Variable(tf.zeros([hidden_unit]))
+
+            y1 = tf.matmul(self.train_input,self.weight,transpose_b=True) + self.biase
+            g1 = tf.nn.sigmoid(y1) # batch_size * label_size
+
+            weight2 = tf.Variable(tf.truncated_normal(shape=[self.label_size,hidden_unit],stddev=1.0/math.sqrt(hidden_unit)))
+            biase2 = tf.Variable(tf.zeros([self.label_size]))
+            y2 = tf.matmul(g1,weight2,transpose_b=True) + biase2
+            g2 = tf.nn.sigmoid(y2)
+
+            self.predict = tf.cast(tf.argmax(g2,axis=1),tf.float32)
+            self.error_num = tf.count_nonzero(label_float-self.predict)
+
+            self.loss = tf.reduce_mean(-tf.reduce_sum(embed_label*tf.log(g2+0.0001)+(1-embed_label)*tf.log(1+0.0001-g2),axis=1))
+
+            # self.train_op = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(self.loss)
+            self.train_op = tf.train.AdagradOptimizer(learning_rate=1).minimize(self.loss)
+            self.init_op = tf.global_variables_initializer()
+
+def gen_balance_samples(file_info_list,label_list):
+    labels = [x['label'] for x in file_info_list]
+    label_count = collections.Counter(labels)
+    freqs = [x[1] for x in label_count]
+    min_freq = min(freqs)
+    sample_list = []
+
+
 if __name__=='__main__':
     with open('word_list_path.pkl','rb') as f:
         word_info_list = pkl.load(f)
         # word2id,id2word = pick_valid_word(word_info_list,50000)
-        word2id,id2word = pick_valid_word_chisquare(word_info_list,40000)
+        word2id,id2word = pick_valid_word_chisquare(word_info_list,30000)
     with open('THUCNews.pkl','rb') as f:
         embedding = pkl.load(f)
     with open('file_info_list.pkl','rb') as f:
@@ -71,9 +127,15 @@ if __name__=='__main__':
             label_list.append(label)
 
     print(label_list)
+
+    # 建立一个各类比较均衡的数据集
+    # equal_size_info_list = []
+    # for info in file_info_list:
+
     label_size = label_list.__len__()
     embed_size = embedding[0].__len__()
-    model = SimpleClassifier(label_size=label_size,embed_size=embed_size)
+    # model = SimpleClassifier(label_size=label_size,embed_size=embed_size)
+    model = MLPClassifier(label_size=label_size,embed_size=embed_size)
     count = 0
     loss_deque = collections.deque(maxlen=500)
     error_deque = collections.deque(maxlen=500)
@@ -81,7 +143,12 @@ if __name__=='__main__':
     seperate_count = [0]*label_size
     len_deque = collections.deque(maxlen=100)
     print('times\tavg loss\tavg err\tavg len')
-    for file_info in file_info_list:
+
+    file_info_num = len(file_info_list)
+    train_info_num = math.floor(file_info_num*0.95)
+    num_steps = 200000
+    for i in range(num_steps):
+        file_info = file_info_list[i%train_info_num]
         file_path = file_info['path']
         file_label = file_info['label']
         lines = read_text(file_path)
@@ -117,7 +184,7 @@ if __name__=='__main__':
             avg_err = np.mean(error_deque)
             avg_len = np.mean(len_deque)
 
-            print('{a}\t{b}\t{c}\t{d}'.format(a=count,b=avg_loss,c=avg_err,d=avg_len))
+            print('{a}\t{b}\t{c}\t{d}'.format(a=count,b=avg_loss,c=1-avg_err,d=avg_len))
 
 
         if count%5000==0:
