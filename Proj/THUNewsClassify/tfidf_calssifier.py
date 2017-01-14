@@ -20,7 +20,7 @@ if __name__=='__main__':
         full_word2id = {}
         for info in word_info_list:
             full_word2id[info['word']] = info['id']
-        word2id,id2word = pick_valid_word_chisquare(word_info_list,dict_size=dict_size)
+        word2id,id2word = pick_valid_word_chisquare(word_info_list,dict_size=30000,s1_size=dict_size)
         id_old2new = {}
         for word in word2id:
             new_id = word2id[word]
@@ -33,7 +33,7 @@ if __name__=='__main__':
     label_list = ['娱乐', '股票', '体育', '科技', '房产', '社会', '游戏', '财经', '时政', '家居', '彩票', '教育', '时尚', '星座']
 
     # 产生tf - idf 权重
-    weights = np.zeros([dict_size])
+    weights = np.ones([dict_size])
     for word in word2id:
         word_info = word_info_list[full_word2id[word]]
         part_tf = 1.0/word_info['count']
