@@ -4,11 +4,12 @@ import copy
 import jieba
 import numpy as np
 import collections
-from Proj.THUNewsClassify.util import read_text,rm_words,pick_valid_word,pick_valid_word_chisquare
+from Proj.THUNewsClassify.util import read_text,rm_words,pick_valid_word,pick_valid_word_chisquare,gen_balance_samples
 import TextDeal
 import math
 from pprint import pprint
 import matplotlib.pyplot as plt
+import random
 
 # 该分类器比较简单，即将单词的embedding相加以后放入神经网络进行线性分类(即单层神经网络)
 
@@ -103,14 +104,6 @@ class MLPClassifier():
             self.train_op = tf.train.AdagradOptimizer(learning_rate=1).minimize(self.loss)
             self.init_op = tf.global_variables_initializer()
 
-def gen_balance_samples(file_info_list,label_list):
-    labels = [x['label'] for x in file_info_list]
-    label_count = collections.Counter(labels)
-    freqs = [x[1] for x in label_count]
-    min_freq = min(freqs)
-    sample_list = []
-
-
 if __name__=='__main__':
     with open('word_list_path.pkl','rb') as f:
         word_info_list = pkl.load(f)
@@ -127,19 +120,20 @@ if __name__=='__main__':
             label_list.append(label)
 
     print(label_list)
+    gen_balance_samples(file_info_list,label_list)
 
-    # 建立一个各类比较均衡的数据集
-    # equal_size_info_list = []
-    # for info in file_info_list:
+    #建立一个各类比较均衡的数据集
+    balanced_info_list = gen_balance_samples(file_info_list,label_list)
+    file_info_list = balanced_info_list
 
     label_size = label_list.__len__()
     embed_size = embedding[0].__len__()
     # model = SimpleClassifier(label_size=label_size,embed_size=embed_size)
     model = MLPClassifier(label_size=label_size,embed_size=embed_size)
     count = 0
-    loss_deque = collections.deque(maxlen=500)
-    error_deque = collections.deque(maxlen=500)
-    seperate_error_deque = [collections.deque(maxlen=500) for _ in range(label_size)]
+    loss_deque = collections.deque(maxlen=2000)
+    error_deque = collections.deque(maxlen=2000)
+    seperate_error_deque = [collections.deque(maxlen=2000) for _ in range(label_size)]
     seperate_count = [0]*label_size
     len_deque = collections.deque(maxlen=100)
     print('times\tavg loss\tavg err\tavg len')

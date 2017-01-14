@@ -2,6 +2,7 @@
 import TextDeal
 from Proj.THUNewsClassify.chi_square import ChiSquareCalculator
 import numpy as np
+import collections,random
 
 def rm_chars(sent):
     new_sent = ''
@@ -67,17 +68,17 @@ def pick_valid_word(word_info_list, dict_size):
         id2word[i] = word
     return word2id,id2word
 
-def pick_valid_word_chisquare(word_info_list, dict_size):
+def pick_valid_word_chisquare(word_info_list, dict_size, s1_size = 50000):
     label_list = ['娱乐', '股票', '体育', '科技', '房产', '社会', '游戏', '财经', '时政', '家居', '彩票', '教育', '时尚', '星座']
     word_info_list.sort(key=lambda x:x['count'],reverse=True)
-    word_info_list = word_info_list[:50000]
+    word_info_list = word_info_list[:s1_size]
     word2id = {}
     id2word = {}
     for i,line in enumerate(word_info_list):
         word = line['word']
         word2id[word] = i
         id2word[i] = word
-    c = ChiSquareCalculator(50000,len(label_list))
+    c = ChiSquareCalculator(s1_size,len(label_list))
     for info in word_info_list:
         word = info['word']
         word_id = word2id[word]
@@ -92,3 +93,34 @@ def pick_valid_word_chisquare(word_info_list, dict_size):
         valid_word2id[word] = id
         valid_id2word[id] =  word
     return valid_word2id,valid_id2word
+
+def gen_balance_samples(file_info_list,label_list,balance_index=2):
+    labels = [x['label'] for x in file_info_list]
+    label_count = collections.Counter(labels)
+    print(label_count)
+    freqs = label_count.values()
+    min_freq = min(freqs)
+    sample_list = [collections.deque(maxlen=min_freq*balance_index) for _ in range(len(label_list))]
+    for info in file_info_list:
+        labelid = label_list.index(info['label'])
+        sample_list[labelid].append(info)
+    sample_list = [list(x) for x in sample_list]
+    ret = sum(sample_list,[])
+    random.shuffle(ret)
+    return ret
+
+def gen_balance_samples_withid(file_info_list,label_list,balance_index=2):
+    labels = [x['label'] for x in file_info_list]
+    label_count = collections.Counter(labels)
+    print(label_count)
+    freqs = label_count.values()
+    min_freq = min(freqs)
+    sample_list = [collections.deque(maxlen=min_freq*balance_index) for _ in range(len(label_list))]
+    for i,info in enumerate(file_info_list):
+        info['id'] = i
+        labelid = label_list.index(info['label'])
+        sample_list[labelid].append(info)
+    sample_list = [list(x) for x in sample_list]
+    ret = sum(sample_list,[])
+    random.shuffle(ret)
+    return ret
