@@ -8,6 +8,7 @@ import TextDeal
 import collections
 from Proj.THUNewsClassify.util import pick_valid_word,\
     pick_valid_word_chisquare,read_text,rm_words,rm_stop_words
+from Proj.THUNewsClassify.LTM import LTMCell
 
 class RNNClassifier():
     def __init__(self,
@@ -43,15 +44,30 @@ class RNNClassifier():
             print('pin2.2')
             # BasicRNNCell: [num_units, input_size, ...]
             # self.rnn_cell = tf.nn.rnn_cell.BasicRNNCell(self.hidden_size,self.embed_size)
-            self.rnn_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,self.embed_size,state_is_tuple=True)
+            # self.rnn_cell = tf.nn.rnn_cell.LSTMCell(self.hidden_size,self.embed_size,state_is_tuple=True)
+            self.rnn_cell = LTMCell(self.hidden_size,self.embed_size,state_is_tuple=True)
             self.rnn_cell = tf.nn.rnn_cell.DropoutWrapper(self.rnn_cell,output_keep_prob=0.9)
             print('pin2.3')
             init_stat = self.rnn_cell.zero_state(1,tf.float32)
             output_embedding,states = tf.nn.rnn(self.rnn_cell,input_list,
                                                 initial_state=init_stat,
                                                 sequence_length=self.seq_len)
+
+            # state = init_stat
+            # states = []
+            # with tf.variable_scope('RNN'):
+            #     for time_step in range(max_depth):
+            #         if tf.equal(time_step,self.seq_len):
+            #             break
+            #         if time_step>0:
+            #             tf.get_variable_scope().reuse_variables()
+            #         m,state = self.rnn_cell(input_list[time_step,:],state)
+            #         states.append(state)
+            # final_output = states[-1][0]
+
             print('pin2.4')
             final_output = states[-1] # final_output : [1,hidden_size]
+            print(final_output.get_shape())
 
             weight = tf.Variable(tf.truncated_normal([self.label_size,self.hidden_size],
                                                      stddev=1.0/math.sqrt(self.hidden_size)))
@@ -102,7 +118,7 @@ if __name__=='__main__':
     embed_size = embedding[0].__len__()
 
     # 遍历一遍，筛选出有效词，以【new】 id形式保存，并记录每篇文档中单词数目
-    pool_size = 4
+    pool_size = 2
     valid_content_list = []
     lens = []
     max_depth = -1
@@ -124,7 +140,7 @@ if __name__=='__main__':
 
     # # 对每个文本生成长为max_depth的embed序列，多余部分补零,丢入rnn模型
     print('pin0')
-    c = RNNClassifier(label_size=len(label_list),max_depth=max_depth,embed_size=embed_size)
+    c = RNNClassifier(label_size=len(label_list),max_depth=max_depth,embed_size=embed_size,hidden_size=400)
     print('pin1')
     count = 0
     loss_deque = collections.deque(maxlen=200)
