@@ -5,6 +5,7 @@ import pickle as pkl
 import os.path as path
 import os
 import math
+from collections import Counter
 from pprint import pprint
 import collections
 from pymongo import MongoClient
@@ -155,8 +156,9 @@ class SimpleClassifier():
 
 # 读取词库信息
 f = open('../embedding/word_info_list.pkl','rb')
-word_info_list = pkl.load(f)
+word_info_list = pkl.load(f) # word info list,　包含了id, word, embedding 这3条信息
 f.close()
+# pprint(word_info_list)
 word_list = [x['word'] for x in word_info_list]
 word_set = set(word_list)
 word_dict = {}
@@ -196,15 +198,16 @@ for line in row_data:
         tmp_pack['category'] = cat
         tmp_pack['emotion'] = emotion
         concat_data.append(tmp_pack)
+# pprint(concat_data)
 
 # 对文本进行预处理
 def predeal(sentence):
-    if sentence.__len__()<3:
+    if sentence.__len__()<3:  # 如果句子过短，则直接过滤掉
         return []
-    sentence = TextDeal.removeLinkOnly(sentence)
-    words = [x for x in jieba.cut(sentence, cut_all=False)]
+    sentence = TextDeal.removeLinkOnly(sentence)  # 通过regex去掉链接符号
+    words = [x for x in jieba.cut(sentence, cut_all=False)] # 分词
     valid_words = []
-    my_own_stop = ['【','】','《','》','@']
+    my_own_stop = ['【','】','《','》','@']  # 去除一些自定义的停用词
     for word in words:
         if TextDeal.isStopWord(word):
             continue
@@ -215,16 +218,20 @@ def predeal(sentence):
         valid_words.append(word)
     return  valid_words
 
-def cal_l2_model(np_vector):
+def cal_l2_model(np_vector):  # 计算词向量的l2模
     return np.sqrt(np.sum(np.square(np_vector)))
 
 dealed_data = []
 emotion_list = []
 category_list = []
+str_set = []
 for item in concat_data:
     content = item['text']
     if content.__len__()<3:
         continue
+    if content in str_set:
+        continue
+    str_set.append(content)
     valid_words = predeal(content)
     if valid_words.__len__()==0:
         continue
@@ -235,6 +242,7 @@ for item in concat_data:
         emotion_list.append(item['emotion'])
     if item['category'] not in category_list:
         category_list.append(item['category'])
+    print(item)
 
 # 建立模型并训练
 classifier = SimpleClassifier(word_list=word_list,
