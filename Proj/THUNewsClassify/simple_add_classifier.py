@@ -4,7 +4,8 @@ import copy
 import jieba
 import numpy as np
 import collections
-from Proj.THUNewsClassify.util import read_text,rm_words,pick_valid_word,pick_valid_word_chisquare,gen_balance_samples
+from Proj.THUNewsClassify.util import read_text,\
+    rm_words,pick_valid_word,pick_valid_word_chisquare,gen_balance_samples
 import TextDeal
 import math
 from pprint import pprint
@@ -12,7 +13,6 @@ import matplotlib.pyplot as plt
 import random
 
 # 该分类器比较简单，即将单词的embedding相加以后放入神经网络进行线性分类(即单层神经网络)
-
 class SimpleClassifier():
     def __init__(self,
                  label_size,            # 类别数目
@@ -57,6 +57,7 @@ class SimpleClassifier():
             self.init_op = tf.global_variables_initializer()
 
 class MLPClassifier():
+    #将单词的embedding相加以后放入双层神经网络进行分类
     def __init__(self,
                  label_size,
                  batch_size = None,
@@ -105,12 +106,13 @@ class MLPClassifier():
             self.init_op = tf.global_variables_initializer()
 
 if __name__=='__main__':
-    dict_size = 30000
+    dict_size = 50000
+    valid_chi_size = 3000 ;
     with open('word_list_path_with_docfreq.pkl','rb') as f:
         word_info_list = pkl.load(f)
         # word2id,id2word = pick_valid_word(word_info_list,50000)
         full_word2id = dict(zip([x['word'] for x in word_info_list],[x['id'] for x in word_info_list]))
-        word2id,id2word = pick_valid_word_chisquare(word_info_list,dict_size=dict_size)
+        word2id,id2word = pick_valid_word_chisquare(word_info_list,dict_size=valid_chi_size,s1_size=dict_size)
     with open('THUCNews.pkl','rb') as f:
         embedding = pkl.load(f)
     with open('file_info_list.pkl','rb') as f:
@@ -123,7 +125,7 @@ if __name__=='__main__':
             label_list.append(label)
 
     print(label_list)
-    weights = np.ones([dict_size])
+    weights = np.zeros([dict_size])
     for word in word2id:
         word_info = word_info_list[full_word2id[word]]
         part_tf = 1.0/word_info['count']
@@ -131,6 +133,7 @@ if __name__=='__main__':
             part_idf =  math.log(file_full_nums/word_info['doc_freq'])
         else:
             part_idf = math.log(file_full_nums/word_info['count'])
+        print(word, word2id[word])
         weights[word2id[word]] = part_tf * part_idf
 
     gen_balance_samples(file_info_list,label_list)
@@ -142,7 +145,7 @@ if __name__=='__main__':
     label_size = label_list.__len__()
     embed_size = embedding[0].__len__()
     # model = SimpleClassifier(label_size=label_size,embed_size=embed_size)
-    model = MLPClassifier(label_size=label_size,embed_size=embed_size)
+    model = SimpleClassifier(label_size=label_size,embed_size=embed_size)
     count = 0
     loss_deque = collections.deque(maxlen=2000)
     error_deque = collections.deque(maxlen=2000)

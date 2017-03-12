@@ -5,6 +5,7 @@ import numpy as np
 import collections,random
 
 def rm_chars(sent):
+    # 功能: 去除 □ ■ 等无意义的字符
     new_sent = ''
     warn_chars = [
         '\u3000',
@@ -22,6 +23,7 @@ def rm_chars(sent):
     return new_sent
 
 def read_text(file_path):
+    # 功能: 从文件中读取内容，将每行去除无意义字符以后，依次存入列表中
     lines = []
     with open(file_path) as f:
         line = f.readline()
@@ -33,6 +35,7 @@ def read_text(file_path):
         return lines
 
 def rm_words(word_list):
+    # 功能: 输入单词序列，去掉单词中的 invalid word, 标点符号
     new_words = []
     for word in word_list:
         if not TextDeal.isValidWord(word):
@@ -47,6 +50,7 @@ def rm_invalid_words(word_list):
     return rm_words(word_list)
 
 def rm_stop_words(word_list):
+    # 功能： 去除单词中的 stop word, 以及标点符号
     new_words = []
     for word in word_list:
         if TextDeal.isStopWord(word):
@@ -58,6 +62,7 @@ def rm_stop_words(word_list):
     return new_words
 
 def pick_valid_word(word_info_list, dict_size):
+    # 从输入的词频中挑选出词频前N多的单词
     word_info_list.sort(key=lambda x:x['count'],reverse=True)
     word_info_list = word_info_list[:dict_size]
     word2id = {}
@@ -69,7 +74,9 @@ def pick_valid_word(word_info_list, dict_size):
     return word2id,id2word
 
 def pick_valid_word_chisquare(word_info_list, dict_size, s1_size = 50000):
+    # 根据单词的卡方值来挑选出合适的单词
     label_list = ['娱乐', '股票', '体育', '科技', '房产', '社会', '游戏', '财经', '时政', '家居', '彩票', '教育', '时尚', '星座']
+    # 首先根据词频挑选出前5W个词(其实是为了防止id混乱)
     word_info_list.sort(key=lambda x:x['count'],reverse=True)
     word_info_list = word_info_list[:s1_size]
     word2id = {}
@@ -80,6 +87,7 @@ def pick_valid_word_chisquare(word_info_list, dict_size, s1_size = 50000):
         id2word[i] = word
     c = ChiSquareCalculator(s1_size,len(label_list))
     for info in word_info_list:
+        # 依次将单词信息输入chi square矩阵
         word = info['word']
         word_id = word2id[word]
         for item in info['sub_count']:
