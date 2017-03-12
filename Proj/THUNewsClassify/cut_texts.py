@@ -9,6 +9,7 @@ with open('file_info_list.pkl','rb') as f:
     file_info_list = pkl.load(f)
 with open('word_list_path.pkl','rb') as f:
     word_info_list = pkl.load(f)
+    # 包含了 count, word, id, sub_count这几项
 full_word_info_dict = {}
 for line in word_info_list:
     full_word_info_dict[line['word']] = line

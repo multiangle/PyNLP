@@ -15,7 +15,7 @@ import random
 
 class SimpleClassifier():
     def __init__(self,
-                 label_size,
+                 label_size,            # 类别数目
                  batch_size = None,
                  embed_size = 200,
                  ):
