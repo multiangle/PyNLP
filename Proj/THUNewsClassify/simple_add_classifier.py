@@ -107,7 +107,7 @@ class MLPClassifier():
 
 if __name__=='__main__':
     dict_size = 50000
-    valid_chi_size = 3000 ;
+    valid_chi_size = 500 ;
     with open('word_list_path_with_docfreq.pkl','rb') as f:
         word_info_list = pkl.load(f)
         # word2id,id2word = pick_valid_word(word_info_list,50000)
@@ -125,6 +125,7 @@ if __name__=='__main__':
             label_list.append(label)
 
     print(label_list)
+    # 根据 单词的 tf 和 idf 来计算每个单词的权重
     weights = np.zeros([dict_size])
     for word in word2id:
         word_info = word_info_list[full_word2id[word]]
@@ -136,12 +137,12 @@ if __name__=='__main__':
         print(word, word2id[word])
         weights[word2id[word]] = part_tf * part_idf
 
-    gen_balance_samples(file_info_list,label_list)
+    # gen_balance_samples(file_info_list,label_list)
 
     #建立一个各类比较均衡的数据集
     balanced_info_list = gen_balance_samples(file_info_list,label_list)
     file_info_list = balanced_info_list
-
+    print(file_info_list)
     label_size = label_list.__len__()
     embed_size = embedding[0].__len__()
     # model = SimpleClassifier(label_size=label_size,embed_size=embed_size)

@@ -118,6 +118,7 @@ def gen_balance_samples(file_info_list,label_list,balance_index=2):
     return ret
 
 def gen_balance_samples_withid(file_info_list,label_list,balance_index=2):
+    # balance_index 表示样本最多的类和样本最少的类之间的比例
     labels = [x['label'] for x in file_info_list]
     label_count = collections.Counter(labels)
     print(label_count)
