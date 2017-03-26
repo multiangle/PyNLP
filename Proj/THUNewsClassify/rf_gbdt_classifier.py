@@ -11,8 +11,9 @@ import math
 from pprint import pprint
 import matplotlib.pyplot as plt
 import random
+from collections import Counter
 import pickle as pkl
-from sklearn.ensemble import  AdaBoostClassifier
+from sklearn.ensemble import  AdaBoostClassifier,GradientBoostingClassifier,ExtraTreesClassifier
 from sklearn.tree import DecisionTreeClassifier
 
 
@@ -46,7 +47,7 @@ if __name__=='__main__':
     #         part_idf = math.log(file_full_nums/word_info['count'])
     #     weights[word2id[word]] = part_tf * part_idf
     #
-    # balanced_info_list = gen_balance_samples(file_info_list,label_list,balance_index=1)
+    # balanced_info_list = gen_balance_samples(file_info_list,label_list,balance_index=5)
     # file_info_list = balanced_info_list
     #
     # file_info_num = len(file_info_list)
@@ -61,13 +62,18 @@ if __name__=='__main__':
     #     words = rm_words(words)
     #     word_embed_list = []
     #     valid_count = 0
+    #     weight_sum = 0
     #     for word in words:
     #         # if (word in word2id):
     #         if (word in word2id) and (not TextDeal.isStopWord(word)):
     #             word_embed_list.append(embedding[word2id[word]])
+    #             # w = weights[word2id[word]]
+    #             # weight_sum += w
+    #             # word_embed_list.append(w*embedding[word2id[word]])
     #             valid_count += 1
     #     if valid_count>0:
     #         context_embed = np.mean(np.array(word_embed_list),axis=0)
+    #         # context_embed = np.sum(np.array(word_embed_list),axis=0)/weight_sum
     #         file_vec_list.append(context_embed)
     #         label_name_list.append(sample['label'])
     #     if i%1000==0:
@@ -84,23 +90,44 @@ if __name__=='__main__':
     #
     # file = open('adaboost_data.pkl','wb')
     # pkl.dump([file_vec_list,label_id_list],file)
-    # # #-------------------
+    # file.close()
+    # # # #-------------------
 
     file = open('adaboost_data.pkl','rb')
     [file_vec_list,label_id_list] = pkl.load(file)
+    file.close()
     sample_num = len(file_vec_list)
     train_num = round(sample_num*0.8)
+    print(sample_num)
+    print(train_num)
     train_set = file_vec_list[:train_num]
     train_label = label_id_list[:train_num]
+
     test_set = file_vec_list[train_num:]
     test_label = label_id_list[train_num:]
 
-    classifier = AdaBoostClassifier(base_estimator=DecisionTreeClassifier(max_depth=3,
-                                                                          min_samples_split=20,
-                                                                          min_samples_leaf=5),
-                                    n_estimators=50,
-                                    learning_rate=1,
-                                    )
+    label_counter = Counter(train_label)
+
+    # # # # AdaBoost
+    # classifier = AdaBoostClassifier(
+    #                                 base_estimator=DecisionTreeClassifier(criterion='entropy',
+    #                                                                       max_depth=5,
+    #                                                                       min_samples_split=20,
+    #                                                                       min_samples_leaf=5),
+    #                                 n_estimators=200,
+    #                                 learning_rate=0.3,
+    #                                 )
+
+    # # # extra tree
+    classifier = ExtraTreesClassifier(n_estimators=200,
+                                      criterion='gini',
+                                      max_depth=25,
+                                      bootstrap=False,
+                                      n_jobs=6,
+                                      class_weight=label_counter
+                                      )
+
     classifier.fit(np.array(train_set),np.array(train_label))
     print(classifier.score(np.array(train_set),np.array(train_label)))
+    print(classifier.score(np.array(test_set),np.array(test_label)))
     predict_res = classifier.predict(np.array(test_set))

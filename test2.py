@@ -1,42 +1,45 @@
-from gensim import corpora
-from pymongo import MongoClient
-from DB_Interface import MySQL_Interface
-from matplotlib import pyplot as plt
-from pprint import pprint
-import pickle as pkl
-import math
+import tensorflow as tf
+import numpy as np
 
-# mysql = MySQL_Interface(dbname='milu')
-#
-# content = mysql.select_asQuery("select * from weibo_hadoop_wordcount")
-# col_info = mysql.get_col_name('weibo_hadoop_wordcount')
-#
-# word_info = {}
-# for line in content:
-#     word = line[0]
-#     item_info = word_info.get(word,{})
-#     if item_info == {} :
-#         item_info['word'] = word
-#         item_info['freq'] = line[2]
-#         item_info['reposts'] = line[3]
-#         item_info['attitudes'] = line[4]
-#         item_info['comments'] = line[5]
-#     else:
-#         item_info['freq'] += line[2]
-#         item_info['reposts'] += line[3]
-#         item_info['attitudes'] += line[4]
-#         item_info['comments'] += line[5]
-#     word_info[word] = item_info
-#
-# with open('word_count.pkl','wb') as f:
-#     pkl.dump(word_info,f)
+if __name__ == '__main__':
+    np.random.seed(1)
+    size = 100
+    batch_size= 100
+    n_steps = 45
+    seq_width = 50
 
-content = None
-with open('word_count.pkl','rb') as f:
-    content = pkl.load(f)
+    initializer = tf.random_uniform_initializer(-1,1)
 
-cont_list = [content[x] for x in content]
-cont_list.sort(key=lambda x:x['freq'],reverse=True)
-word_list = [x['word'] for x in cont_list]
-pprint(word_list[:30000])
+    seq_input = tf.placeholder(tf.float32, [n_steps, batch_size, seq_width])
+    #sequence we will provide at runtime  
+    early_stop = tf.placeholder(tf.int32)
+    #what timestep we want to stop at
 
+    # 等同于 inputs = tf.unpack(seq_input,axis=0)
+    # 此时 input 为每个time step的数据组成的数组
+    inputs = [tf.reshape(i, (batch_size, seq_width)) for i in tf.split(0, n_steps, seq_input)]
+
+    #inputs for rnn needs to be a list, each item being a timestep.
+    #we need to split our input into each timestep, and reshape it because split keeps dims by default  
+
+    # size: num unit 即lstm隐藏层的数目。 seq_width: input_size, 即我的embed_size
+    cell = tf.nn.rnn_cell.LSTMCell(size, seq_width, initializer=initializer)
+    initial_state = cell.zero_state(batch_size, tf.float32)
+    outputs, states = tf.nn.rnn(cell, inputs, initial_state=initial_state, sequence_length=early_stop)
+    #set up lstm
+
+    iop = tf.initialize_all_variables()
+    #create initialize op, this needs to be run by the session!
+    session = tf.Session()
+    session.run(iop)
+    #actually initialize, if you don't do this you get errors about uninitialized stuff
+
+    feed = {early_stop:100, seq_input:np.random.rand(n_steps, batch_size, seq_width).astype('float32')}
+    #define our feeds. 
+    #early_stop can be varied, but seq_input needs to match the shape that was defined earlier
+
+    outs = session.run(outputs, feed_dict=feed)
+    #run once
+    #output is a list, each item being a single timestep. Items at t>early_stop are all 0s
+    print(type(outs))
+    print(len(outs))
