@@ -10,7 +10,7 @@ invalid_word_list = None
 invalid_word_set = None
 
 def removeLinkOnly(sentence):
-    # 去掉 a 块部分
+    # 去掉 <a...>#tag#</a> 块部分，只保留tag内容
     m1 = re.compile('<a.*?/a>')
     res = re.findall(m1,sentence)
     if res.__len__()>0:
@@ -24,6 +24,37 @@ def removeLinkOnly(sentence):
     while '<br/>' in sentence:
         sentence = sentence.replace('<br/>','')
 
+    return sentence
+
+def removeTagLinkOnly(sentence):
+    return removeLinkOnly(sentence)
+
+def removeNetworkLinkOnly(sentence):
+    # 去掉 <a....>网页链接</a>
+    m1 = re.compile('<a.*?/a>')
+    res = re.findall(m1, sentence)
+    if len(res)>0:
+        for item in res:
+            if '网页链接' in item:
+                sentence = sentence.replace(item,'')
+    return sentence
+
+def removeLinkTotal(sentence):
+    # 去掉 <a....>xxx</a>
+    m1 = re.compile('<a.*?/a>')
+    res = re.findall(m1, sentence)
+    if len(res)>0:
+        for item in res:
+            sentence = sentence.replace(item,'')
+    return sentence
+
+def removeIBlockTotal(sentence):
+    # 去掉 <i></i>表情符
+    m1 = re.compile('<i.*?/i>')
+    res = re.findall(m1, sentence)
+    if len(res)>0:
+        for item in res:
+            sentence = sentence.replace(item,'')
     return sentence
 
 def isStopWord(word):
