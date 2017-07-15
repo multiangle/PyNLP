@@ -102,6 +102,38 @@ def pick_valid_word_chisquare(word_info_list, dict_size, s1_size = 50000):
         valid_id2word[id] =  word
     return valid_word2id,valid_id2word
 
+def pick_valid_word_chisquare_concat(word_info_list, dict_size, s1_size=50000):
+    # 根据单词的卡方值来挑选出合适的单词, 与非concat的相比，
+    # 不再将新的word2id的id范围限制在【0-s1_size】,而是限制在【0-dict_size】
+    # WARNING: 该方法不能用于需要预先训练好的词向量的方法，例如MLP, tf中的所有模型
+
+    label_list = ['娱乐', '股票', '体育', '科技', '房产', '社会', '游戏', '财经', '时政', '家居', '彩票', '教育', '时尚', '星座']
+    word_info_list.sort(key=lambda x:x['count'],reverse=True)
+    word_info_list_cut = word_info_list[:s1_size]
+    word2id={}
+    id2word = {}
+    c = ChiSquareCalculator(s1_size, len(label_list))
+    for i,info in enumerate(word_info_list_cut):
+        word = info['word']
+        word_id = i
+        word2id[word] = i
+        id2word[i] = word
+        for item in info['sub_count']:
+            c.add(word_id, label_list.index(item), info['sub_count'][item])
+    c.cal()
+    chi_order = np.argsort(-c.chi_value)[:dict_size]
+    valid_word2id = {}
+    valid_id2word = {}
+    for id in chi_order:
+        word = id2word[id]
+        new_id = len(valid_id2word)
+        valid_id2word[new_id] = word
+        valid_word2id[word] = new_id
+    return valid_word2id, valid_id2word
+
+
+
+
 def gen_balance_samples(file_info_list,label_list,balance_index=2):
     labels = [x['label'] for x in file_info_list]
     label_count = collections.Counter(labels)

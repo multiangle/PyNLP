@@ -16,16 +16,22 @@ if __name__=='__main__':
 
     # 根据卡方和词频选出若干个词，产生 word <-> id映射，以及id->id映射
     with open('word_list_path_with_docfreq.pkl','rb') as f:
+        # word_info_list:
+        # 存储的所有单词的信息, 每个单词是一个dict,key={word, id, doc_freq, count, sub_count}
         word_info_list = pkl.load(f)
+        # full_word:
+        # 存储的所有单词的 word->id 映射
         full_word2id = {}
         for info in word_info_list:
             full_word2id[info['word']] = info['id']
+        # 使用pick_valid_word_chisquare 挑出对应单词以后
+        # word2id 中的id指的是按照s1_size数目来的，即 id < s1_size, 而不是 < dict_size
         word2id,id2word = pick_valid_word_chisquare(word_info_list,dict_size=30000,s1_size=dict_size)
         id_old2new = {}
         for word in word2id:
             new_id = word2id[word]
             old_id = full_word2id[word]
-            id_old2new[old_id] = new_id
+            id_old2new[old_id] = new_id # id_old2new, 从full id 到 dict id的映射
 
     with open('file_info_list.pkl','rb') as f:
         file_info_list = pkl.load(f)
@@ -48,6 +54,7 @@ if __name__=='__main__':
         contents_idtype = pkl.load(f)
 
     file_infos = gen_balance_samples_withid(file_info_list,label_list,balance_index=3)
+
     m = SimpleClassifier(label_size=len(label_list),embed_size=dict_size)
     num_steps = 200000
     train_nums = math.ceil(len(file_infos)*0.9)
@@ -69,19 +76,19 @@ if __name__=='__main__':
         for id in valid_content:
             count_vector[id] += 1
         tfidf_vector = np.multiply(count_vector,weights)
-        feed_dict = {
-            m.train_input:[tfidf_vector],
-            m.train_label:[label_list.index(label)]
-        }
-        _,err_num,loss = m.sess.run([m.train_op,m.error_num,m.loss],feed_dict=feed_dict)
-        loss_deque.append(loss)
-        err_deque.append(err_num)
-        sub_deque[label_list.index(label)].append(err_num)
-        if i%500==0:
-            avg_loss = np.mean(loss_deque)
-            avg_accu = 1-np.mean(err_deque)
-            avg_sub = [1-np.mean(x) for x in sub_deque]
-            print(i,'\t',avg_loss,'\t',avg_accu)
-            print(str(avg_sub))
+        # feed_dict = {
+        #     m.train_input:[tfidf_vector],
+        #     m.train_label:[label_list.index(label)]
+        # }
+        # _,err_num,loss = m.sess.run([m.train_op,m.error_num,m.loss],feed_dict=feed_dict)
+        # loss_deque.append(loss)
+        # err_deque.append(err_num)
+        # sub_deque[label_list.index(label)].append(err_num)
+        # if i%500==0:
+        #     avg_loss = np.mean(loss_deque)
+        #     avg_accu = 1-np.mean(err_deque)
+        #     avg_sub = [1-np.mean(x) for x in sub_deque]
+        #     print(i,'\t',avg_loss,'\t',avg_accu)
+        #     print(str(avg_sub))
 
 
