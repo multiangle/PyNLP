@@ -64,7 +64,6 @@ if __name__=='__main__':
     for i in range(num_steps):
         file_info = file_infos[i%train_nums]
         context_id = file_info['id']
-        file_path = file_info['path']
         label = file_info['label']
         if context_id>=len(contents_idtype):
             continue
@@ -76,19 +75,40 @@ if __name__=='__main__':
         for id in valid_content:
             count_vector[id] += 1
         tfidf_vector = np.multiply(count_vector,weights)
-        # feed_dict = {
-        #     m.train_input:[tfidf_vector],
-        #     m.train_label:[label_list.index(label)]
-        # }
-        # _,err_num,loss = m.sess.run([m.train_op,m.error_num,m.loss],feed_dict=feed_dict)
-        # loss_deque.append(loss)
-        # err_deque.append(err_num)
-        # sub_deque[label_list.index(label)].append(err_num)
-        # if i%500==0:
-        #     avg_loss = np.mean(loss_deque)
-        #     avg_accu = 1-np.mean(err_deque)
-        #     avg_sub = [1-np.mean(x) for x in sub_deque]
-        #     print(i,'\t',avg_loss,'\t',avg_accu)
-        #     print(str(avg_sub))
+        feed_dict = {
+            m.train_input:[tfidf_vector],
+            m.train_label:[label_list.index(label)]
+        }
+        _,err_num,loss = m.sess.run([m.train_op,m.error_num,m.loss],feed_dict=feed_dict)
+        loss_deque.append(loss)
+        err_deque.append(err_num)
+        sub_deque[label_list.index(label)].append(err_num)
+        if i%500==0:
+            avg_loss = np.mean(loss_deque)
+            avg_accu = 1-np.mean(err_deque)
+            avg_sub = [1-np.mean(x) for x in sub_deque]
+            print(i,'\t',avg_loss,'\t',avg_accu)
+            print(str(avg_sub))
+        if i%5000==0:
+            print("iter num %d, execute test process"%i)
+            test_infos = file_infos[train_nums:]
 
+            for test_info in test_infos:
+                context_id = file_info['id']
+                label = file_info['label']
+                if context_id>=len(contents_idtype):
+                    continue
+                content = contents_idtype[context_id]['content']
+                content = sum(content,[])
+                valid_content = filter(lambda x:x in id_old2new,content)
+                valid_content = [id_old2new[x] for x in valid_content]
+                count_vector = np.zeros([dict_size])
+                for id in valid_content:
+                    count_vector[id] += 1
+                tfidf_vector = np.multiply(count_vector,weights)
+                feed_dict = {
+                    m.train_input:[tfidf_vector],
+                    m.train_label:[label_list.index(label)]
+                }
+                err_num, loss = m.sess.run([m.error_num, m.loss], feed_dict=feed_dict)
 
