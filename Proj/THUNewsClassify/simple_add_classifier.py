@@ -51,6 +51,7 @@ class SimpleClassifier():
             self.error_num = tf.count_nonzero(label_float-self.predict)
             
             self.loss = tf.reduce_mean(-tf.reduce_sum(embed_label*tf.log(tmp_g+0.0001)+(1-embed_label)*tf.log(1+0.0001-tmp_g),axis=1))
+            # self.loss = tf.nn.sigmoid_cross_entropy_with_logits(tmp_g, embed_label)
 
             # self.train_op = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(self.loss)
             self.train_op = tf.train.AdagradOptimizer(learning_rate=1).minimize(self.loss)

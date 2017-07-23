@@ -7,6 +7,7 @@ import tensorflow as tf
 import math,random,collections
 from pprint import pprint
 import pickle as pkl
+import random
 from matplotlib import pyplot as plt
 
 # def gen_test_sample(file_info_list)
@@ -54,10 +55,10 @@ if __name__=='__main__':
         contents_idtype = pkl.load(f)
 
     file_infos = gen_balance_samples_withid(file_info_list,label_list,balance_index=3)
-
+    random.shuffle(file_infos)
     m = SimpleClassifier(label_size=len(label_list),embed_size=dict_size)
     num_steps = 200000
-    train_nums = math.ceil(len(file_infos)*0.9)
+    train_nums = math.ceil(len(file_infos)*0.95)
     loss_deque = collections.deque(maxlen=2000)
     err_deque = collections.deque(maxlen=2000)
     sub_deque = [collections.deque(maxlen=500) for _ in range(len(label_list))]
@@ -83,17 +84,17 @@ if __name__=='__main__':
         loss_deque.append(loss)
         err_deque.append(err_num)
         sub_deque[label_list.index(label)].append(err_num)
-        if i%500==0:
+        if i%1000==0:
             avg_loss = np.mean(loss_deque)
             avg_accu = 1-np.mean(err_deque)
             avg_sub = [1-np.mean(x) for x in sub_deque]
-            print(i,'\t',avg_loss,'\t',avg_accu)
-            print(str(avg_sub))
+            print("train iter %d\t%f\t%f"%(i,avg_loss,avg_accu))
+            # print(str(avg_sub))
         if i%5000==0:
-            print("iter num %d, execute test process"%i)
             test_infos = file_infos[train_nums:]
-
-            for test_info in test_infos:
+            err_num_list = []
+            loss_list = []
+            for file_info in test_infos:
                 context_id = file_info['id']
                 label = file_info['label']
                 if context_id>=len(contents_idtype):
@@ -111,4 +112,9 @@ if __name__=='__main__':
                     m.train_label:[label_list.index(label)]
                 }
                 err_num, loss = m.sess.run([m.error_num, m.loss], feed_dict=feed_dict)
-
+                err_num_list.append(err_num)
+                loss_list.append(loss)
+            err_ratio = np.mean(err_num_list)
+            accu_ratio = 1 - err_ratio
+            loss = np.mean(loss_list)
+            print("iter num %d, test process, %f\t%f"%(i, loss, accu_ratio))
