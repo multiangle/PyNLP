@@ -54,11 +54,11 @@ if __name__=='__main__':
     with open('THUCNews_fullid_type.pkl','rb') as f:
         contents_idtype = pkl.load(f)
 
-    file_infos = gen_balance_samples_withid(file_info_list,label_list,balance_index=3)
+    file_infos = gen_balance_samples_withid(file_info_list, label_list, balance_index=3)
     random.shuffle(file_infos)
     m = SimpleClassifier(label_size=len(label_list),embed_size=dict_size)
     num_steps = 200000
-    train_nums = math.ceil(len(file_infos)*0.95)
+    train_nums = math.ceil(len(file_infos)*0.7)
     loss_deque = collections.deque(maxlen=2000)
     err_deque = collections.deque(maxlen=2000)
     sub_deque = [collections.deque(maxlen=500) for _ in range(len(label_list))]

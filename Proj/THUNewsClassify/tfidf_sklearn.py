@@ -14,6 +14,7 @@ from sklearn.svm import SVC, LinearSVC
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
+import liblinear
 
 def gen_data_sparse():
     dict_size = 150000
@@ -149,6 +150,10 @@ def train(train_input, train_output, test_input, test_output):
     print('%f\t%f'%(train_ratio, test_ratio))
     print('%f\t%f'%(train_recal, test_recal ))
 
+def trainLibLinear(train_input, train_output, test_input, test_output):
+    model = liblinear.train(train_output, train_input)
+
+
 def cal_accuracy(pred, output):
     assert len(pred) == len(output)
     size = len(pred)
@@ -169,6 +174,7 @@ def cal_recall(pred, output, label_size):
 if __name__=='__main__':
     train_in, train_out, test_in, test_out = gen_data_sparse()
 
-    train(train_in, train_out, test_in, test_out)
+    # train(train_in, train_out, test_in, test_out)
+    trainLibLinear(train_in, train_out, test_in, test_out)
 
 
