@@ -3,7 +3,7 @@ from Proj.THUNewsClassify.util import \
     gen_balance_samples_withid
 import pickle as pkl
 import numpy as np
-import math, sys, os, gc
+import math, sys, os, gc, logging
 import matplotlib.pyplot as plt
 from scipy import sparse
 from collections import Counter
@@ -14,7 +14,6 @@ from sklearn.svm import SVC, LinearSVC
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
-import liblinear
 
 def gen_data_sparse():
     dict_size = 150000
@@ -23,11 +22,16 @@ def gen_data_sparse():
     with open('word_list_path_with_docfreq.pkl', 'rb') as f:
         full_word_info_list = pkl.load(f)
     full_word2id = {}
-    for info in full_word_info_list:
+    full_word2index = {}
+    full_id2word = {}
+    for i, info in enumerate(full_word_info_list):
         full_word2id[info['word']] = info['id']
+        full_id2word[info['id']] = info['word']
+        full_word2index[info['word']] = i
     word2id,id2word = pick_valid_word_chisquare_concat(full_word_info_list,dict_size=chi_size,s1_size=dict_size)
     id_old2new = {}
     for word in word2id:
+        print(word)
         new_id = word2id[word]
         old_id = full_word2id[word]
         id_old2new[old_id] = new_id
@@ -40,7 +44,7 @@ def gen_data_sparse():
     # 产生tf - idf 权重
     weights = np.ones([chi_size])
     for word in word2id:
-        word_info = full_word_info_list[full_word2id[word]]
+        word_info = full_word_info_list[full_word2index[word]]
         part_tf = 1.0/word_info['count']
         if 'doc_freq' in word_info:
             part_idf =  math.log(file_full_nums/word_info['doc_freq'])
@@ -52,9 +56,14 @@ def gen_data_sparse():
     balance_index = 3
     with open('THUCNews_fullid_type.pkl','rb') as f:
         contents_idtype = pkl.load(f)
-    # file_infos = gen_balance_samples_withid(file_info_list,label_list,balance_index=balance_index)
-    file_infos = file_info_list
+
+    # # select the sample through balance type
+    file_infos = gen_balance_samples_withid(file_info_list,label_list,balance_index=balance_index)
     print("file num is {}, balance index is {}".format(len(file_infos), balance_index))
+
+    # # select all files
+    # file_infos = file_info_list
+
     print(len(file_infos))
 
     # x_data = sparse.dok_matrix((len(file_infos), chi_size))
@@ -81,15 +90,26 @@ def gen_data_sparse():
         train_num = math.ceil(len(file_infos) * train_ratio)
 
         for i, file_info in enumerate(file_infos):
+            print(file_info)
             context_id = file_info['id']
             label = file_info['label']
             if context_id>=len(contents_idtype):
+                logging.warning("gen_data_sparse::context_id is %d , >= length of contents_idtype"%(context_id))
                 continue
 
+            print(label)
             content = contents_idtype[context_id]['content'] # 是[[],[],[]]形式
             content = sum(content,[])  # 拼接起来
+
+            total_words = [full_id2word[id] for id in content]
+            print(total_words)
+
             valid_content = filter(lambda x:x in id_old2new,content)
             valid_content = [id_old2new[x] for x in valid_content]
+
+
+            valid_words = [id2word[id] for id in valid_content]
+            print(valid_words)
 
             # count_vector = np.zeros([chi_size])
             # for id in valid_content:
@@ -148,11 +168,7 @@ def train(train_input, train_output, test_input, test_output):
     test_ratio = cal_accuracy(pred_test, test_output)
     test_recal = cal_recall(pred_test, test_output, label_size)
     print('%f\t%f'%(train_ratio, test_ratio))
-    print('%f\t%f'%(train_recal, test_recal ))
-
-def trainLibLinear(train_input, train_output, test_input, test_output):
-    model = liblinear.train(train_output, train_input)
-
+    print('%f\t%f'%(train_recal, test_recal))
 
 def cal_accuracy(pred, output):
     assert len(pred) == len(output)
@@ -175,6 +191,6 @@ if __name__=='__main__':
     train_in, train_out, test_in, test_out = gen_data_sparse()
 
     # train(train_in, train_out, test_in, test_out)
-    trainLibLinear(train_in, train_out, test_in, test_out)
+
 
 

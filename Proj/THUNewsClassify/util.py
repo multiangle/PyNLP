@@ -77,7 +77,7 @@ def pick_valid_word_chisquare(word_info_list, dict_size, s1_size = 50000):
     # 根据单词的卡方值来挑选出合适的单词
     label_list = ['娱乐', '股票', '体育', '科技', '房产', '社会', '游戏', '财经', '时政', '家居', '彩票', '教育', '时尚', '星座']
     # 首先根据词频挑选出前5W个词(其实是为了防止id混乱)
-    word_info_list.sort(key=lambda x:x['count'],reverse=True)
+    word_info_list = sorted(word_info_list, key=lambda x:x['count'],reverse=True)
     word_info_list = word_info_list[:s1_size]
     word2id = {}
     id2word = {}
@@ -108,7 +108,7 @@ def pick_valid_word_chisquare_concat(word_info_list, dict_size, s1_size=50000):
     # WARNING: 该方法不能用于需要预先训练好的词向量的方法，例如MLP, tf中的所有模型
 
     label_list = ['娱乐', '股票', '体育', '科技', '房产', '社会', '游戏', '财经', '时政', '家居', '彩票', '教育', '时尚', '星座']
-    word_info_list.sort(key=lambda x:x['count'],reverse=True)
+    word_info_list = sorted(word_info_list, key=lambda x:x['count'],reverse=True)
     word_info_list_cut = word_info_list[:s1_size]
     word2id={}
     id2word = {}
