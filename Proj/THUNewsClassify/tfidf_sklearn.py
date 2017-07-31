@@ -16,8 +16,8 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
 
 def gen_data_sparse():
-    dict_size = 150000
-    chi_size = 30000
+    dict_size = 50000
+    chi_size = 20000
     # 根据卡方和词频选出若干个词，产生 word <-> id映射，以及id->id映射
     with open('word_list_path_with_docfreq.pkl', 'rb') as f:
         full_word_info_list = pkl.load(f)
@@ -31,12 +31,12 @@ def gen_data_sparse():
     word2id,id2word = pick_valid_word_chisquare_concat(full_word_info_list,dict_size=chi_size,s1_size=dict_size)
     id_old2new = {}
     for word in word2id:
-        print(word)
+        # print(word)
         new_id = word2id[word]
         old_id = full_word2id[word]
         id_old2new[old_id] = new_id
 
-    with open('file_info_list.pkl','rb') as f:
+    with open('file_info_list_valid.pkl','rb') as f:
         file_info_list = pkl.load(f)
         file_full_nums = len(file_info_list)
     label_list = ['娱乐', '股票', '体育', '科技', '房产', '社会', '游戏', '财经', '时政', '家居', '彩票', '教育', '时尚', '星座']
@@ -57,12 +57,14 @@ def gen_data_sparse():
     with open('THUCNews_fullid_type.pkl','rb') as f:
         contents_idtype = pkl.load(f)
 
-    # # select the sample through balance type
+    # select the sample through balance type
     file_infos = gen_balance_samples_withid(file_info_list,label_list,balance_index=balance_index)
     print("file num is {}, balance index is {}".format(len(file_infos), balance_index))
 
     # # select all files
     # file_infos = file_info_list
+    # for i, file_info in enumerate(file_info_list):
+    #     file_info['id'] = i
 
     print(len(file_infos))
 
@@ -90,26 +92,30 @@ def gen_data_sparse():
         train_num = math.ceil(len(file_infos) * train_ratio)
 
         for i, file_info in enumerate(file_infos):
-            print(file_info)
+            # print(file_info)
             context_id = file_info['id']
             label = file_info['label']
             if context_id>=len(contents_idtype):
                 logging.warning("gen_data_sparse::context_id is %d , >= length of contents_idtype"%(context_id))
                 continue
 
-            print(label)
+            # print(label)
             content = contents_idtype[context_id]['content'] # 是[[],[],[]]形式
             content = sum(content,[])  # 拼接起来
 
             total_words = [full_id2word[id] for id in content]
-            print(total_words)
+            # print(total_words)
 
             valid_content = filter(lambda x:x in id_old2new,content)
             valid_content = [id_old2new[x] for x in valid_content]
 
 
             valid_words = [id2word[id] for id in valid_content]
-            print(valid_words)
+
+            # print('---------------------')
+            # print(label, file_info['path'])
+            # print(valid_words)
+            # print(contents_idtype[context_id]['label'], contents_idtype[context_id]['path'])
 
             # count_vector = np.zeros([chi_size])
             # for id in valid_content:
@@ -121,6 +127,7 @@ def gen_data_sparse():
             for id in id_counter.keys():
                 count = id_counter[id]
                 weight = count * weights[id]
+                # weight = count
                 # x_data[i, id] = count
                 if valid_info_count<train_num:
                     rows.append(valid_info_count)
@@ -149,9 +156,9 @@ def train(train_input, train_output, test_input, test_output):
     # 选择模型
     # model = MultinomialNB()
     # model = GaussianNB()
-    model = SGDClassifier()
-    # model = SVC(kernel='linear')
-    # model = LinearSVC()
+    # model = SGDClassifier()
+    # model = SVC(kernel='linear') # 这个很慢
+    model = LinearSVC()
     # model = RandomForestClassifier(max_depth=2, n_estimators=500)
     # model = AdaBoostClassifier(n_estimators=500,base_estimator=DecisionTreeClassifier(max_depth=10))
 
@@ -163,7 +170,7 @@ def train(train_input, train_output, test_input, test_output):
     label_size = max(train_output)+1
     train_ratio = cal_accuracy(pred_train, train_output)
     train_recal = cal_recall(pred_train, train_output, label_size)
-    print(test_output)
+    # print(test_output)
     print(list(pred_test))
     test_ratio = cal_accuracy(pred_test, test_output)
     test_recal = cal_recall(pred_test, test_output, label_size)
@@ -190,7 +197,7 @@ def cal_recall(pred, output, label_size):
 if __name__=='__main__':
     train_in, train_out, test_in, test_out = gen_data_sparse()
 
-    # train(train_in, train_out, test_in, test_out)
+    train(train_in, train_out, test_in, test_out)
 
 
 

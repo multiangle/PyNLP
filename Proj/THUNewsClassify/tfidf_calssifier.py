@@ -1,9 +1,7 @@
 from Proj.THUNewsClassify.simple_add_classifier import SimpleClassifier
 from Proj.THUNewsClassify.util import read_text,rm_words,gen_balance_samples,pick_valid_word,pick_valid_word_chisquare,gen_balance_samples_withid
 from TextDeal import isStopWord,isValidWord
-import jieba
 import numpy as np
-import tensorflow as tf
 import math,random,collections
 from pprint import pprint
 import pickle as pkl
@@ -34,7 +32,7 @@ if __name__=='__main__':
             old_id = full_word2id[word]
             id_old2new[old_id] = new_id # id_old2new, 从full id 到 dict id的映射
 
-    with open('file_info_list.pkl','rb') as f:
+    with open('file_info_list_valid.pkl','rb') as f:
         file_info_list = pkl.load(f)
         file_full_nums = len(file_info_list)
     label_list = ['娱乐', '股票', '体育', '科技', '房产', '社会', '游戏', '财经', '时政', '家居', '彩票', '教育', '时尚', '星座']
